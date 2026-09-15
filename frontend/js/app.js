@@ -24,6 +24,13 @@ function fmtData(iso) {
   return `${dia}/${mes}/${d.getUTCFullYear()}`;
 }
 
+function diasEmAberto(dataAbertura) {
+  const abertura = new Date(dataAbertura);
+  const hojeUTC = Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate());
+  const aberturaUTC = Date.UTC(abertura.getUTCFullYear(), abertura.getUTCMonth(), abertura.getUTCDate());
+  return Math.max(0, Math.round((hojeUTC - aberturaUTC) / 86400000));
+}
+
 function toast(msg, isError = false) {
   const el = document.createElement('div');
   el.className = 'toast' + (isError ? ' error' : '');
@@ -168,7 +175,7 @@ async function renderDashboard() {
     <tr><td>${fmtData(v.data)}</td><td>${v.hora || '—'}</td><td>${v.representante || '—'}</td><td>${v.responsavel || '—'}</td><td>${v.linha || '—'}</td></tr>
   `;
   const linhaChamado = (c) => `
-    <tr><td class="num">${c.numero}</td><td>${fmtData(c.data)}</td><td>${c.cliente}</td><td>${c.equipamentoCategoria}</td><td>${(c.assunto || '').slice(0, 40)}</td></tr>
+    <tr><td class="num">${c.numero}</td><td>${fmtData(c.data)}</td><td>${c.cliente}</td><td>${c.equipamentoCategoria}</td><td>${(c.assunto || '').slice(0, 40)}</td><td class="num">${diasEmAberto(c.data)}</td></tr>
   `;
 
   main.innerHTML = `
@@ -188,8 +195,8 @@ async function renderDashboard() {
 
     <p class="sectionLabel">Chamados em aberto (${abertos.length})</p>
     <div class="listPanel" style="max-height:320px;overflow-y:auto;">
-      <table><thead><tr><th>Número</th><th>Data</th><th>Cliente</th><th>Equipamento</th><th>Assunto</th></tr></thead>
-        <tbody>${abertos.map(linhaChamado).join('') || '<tr><td colspan="5">Nenhum chamado em aberto.</td></tr>'}</tbody>
+      <table><thead><tr><th>Número</th><th>Data</th><th>Cliente</th><th>Equipamento</th><th>Assunto</th><th>Dias em aberto</th></tr></thead>
+        <tbody>${abertos.map(linhaChamado).join('') || '<tr><td colspan="6">Nenhum chamado em aberto.</td></tr>'}</tbody>
       </table>
     </div>
 
