@@ -34,6 +34,7 @@ const chamadoSchema = z.object({
   conclusao: z.string().optional().nullable(),
   situacao: z.enum(SITUACOES).optional(),
   orcamentoStatus: z.enum(ORCAMENTO_STATUS).optional().nullable(),
+  valorOrcamento: z.coerce.number().optional().nullable(),
   cnpj: z.string().optional().nullable(),
   situacaoFinanceira: z.enum(SITUACAO_FINANCEIRA).optional(),
 });
@@ -41,10 +42,15 @@ const chamadoSchema = z.object({
 // Regra: RESOLVIDO fecha automaticamente e preenche dataFechamento.
 // REPROVADO/CANCELADO no orçamento encerra o chamado (RESOLVIDO) automaticamente.
 // APROVADO volta o chamado para "em andamento" (situacao = OUTROS).
-function aplicarRegrasSituacao(dados, situacaoAnterior) {
+// `existente` é o chamado atual no banco (null na criação) — usado para saber a situação
+// efetiva quando a requisição só manda orcamentoStatus (ex.: aba Orçamentos), sem repetir
+// o campo situacao.
+function aplicarRegrasSituacao(dados, existente) {
   const resultado = { ...dados };
+  const situacaoAnterior = existente ? existente.situacao : null;
+  const situacaoBase = resultado.situacao !== undefined ? resultado.situacao : situacaoAnterior;
 
-  if (resultado.situacao === 'ORCAMENTO' && resultado.orcamentoStatus) {
+  if (situacaoBase === 'ORCAMENTO' && resultado.orcamentoStatus) {
     if (['REPROVADO', 'CANCELADO'].includes(resultado.orcamentoStatus)) {
       resultado.situacao = 'RESOLVIDO';
     } else if (resultado.orcamentoStatus === 'APROVADO') {
@@ -52,26 +58,28 @@ function aplicarRegrasSituacao(dados, situacaoAnterior) {
     }
   }
 
-  if (resultado.situacao === 'RESOLVIDO' && situacaoAnterior !== 'RESOLVIDO') {
+  const situacaoFinal = resultado.situacao !== undefined ? resultado.situacao : situacaoAnterior;
+  if (situacaoFinal === 'RESOLVIDO' && situacaoAnterior !== 'RESOLVIDO') {
     resultado.dataFechamento = new Date();
   }
-  if (resultado.situacao && resultado.situacao !== 'RESOLVIDO') {
+  if (situacaoFinal && situacaoFinal !== 'RESOLVIDO') {
     resultado.dataFechamento = null;
   }
-  if (resultado.situacao && resultado.situacao !== 'ORCAMENTO') {
-    resultado.orcamentoStatus = null;
-  }
+  // orcamentoStatus NÃO é limpo ao sair de ORCAMENTO: fica como histórico da decisão
+  // (aprovado/reprovado/etc.), usado na aba Orçamentos mesmo depois do chamado avançar.
 
   return resultado;
 }
 
 router.get('/', async (req, res) => {
-  const { situacao, equipamento, uf, q, page = '1', pageSize = '50' } = req.query;
+  const { situacao, equipamento, uf, q, orcamento, orcamentoStatus, page = '1', pageSize = '50' } = req.query;
 
   const where = {};
   if (situacao) where.situacao = situacao;
   if (equipamento) where.equipamentoCategoria = equipamento;
   if (uf) where.uf = uf;
+  if (orcamento === 'true') where.orcamentoStatus = { not: null };
+  if (orcamentoStatus) where.orcamentoStatus = orcamentoStatus;
   if (q) {
     where.OR = [
       { cliente: { contains: q, mode: 'insensitive' } },
@@ -119,7 +127,7 @@ router.put('/:id', async (req, res) => {
   const parsed = chamadoSchema.partial().safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ erro: 'Dados inválidos.', detalhes: parsed.error.flatten() });
 
-  const dados = aplicarRegrasSituacao(parsed.data, existente.situacao);
+  const dados = aplicarRegrasSituacao(parsed.data, existente);
 
   const chamado = await prisma.chamado.update({ where: { id: req.params.id }, data: dados });
   res.json(chamado);

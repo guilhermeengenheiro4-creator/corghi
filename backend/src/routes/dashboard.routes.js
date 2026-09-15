@@ -64,4 +64,36 @@ router.get('/chamados', async (req, res) => {
   res.json({ total, porSituacao, porEquipamento, porResponsavel, porMes });
 });
 
+// Métrica de quanto a área técnica influencia vendas: conversão de orçamentos e valor gerado.
+router.get('/orcamentos', async (req, res) => {
+  const porStatus = await prisma.chamado.groupBy({
+    by: ['orcamentoStatus'],
+    where: { orcamentoStatus: { not: null } },
+    _count: true,
+    _sum: { valorOrcamento: true },
+  });
+
+  const mapa = Object.fromEntries(
+    porStatus.map((s) => [s.orcamentoStatus, { quantidade: s._count, valor: Number(s._sum.valorOrcamento || 0) }])
+  );
+
+  const aprovado = mapa.APROVADO || { quantidade: 0, valor: 0 };
+  const reprovado = mapa.REPROVADO || { quantidade: 0, valor: 0 };
+  const cancelado = mapa.CANCELADO || { quantidade: 0, valor: 0 };
+  const enviado = mapa.ENVIADO || { quantidade: 0, valor: 0 };
+  const aMontar = mapa.A_MONTAR || { quantidade: 0, valor: 0 };
+
+  const decididos = aprovado.quantidade + reprovado.quantidade + cancelado.quantidade;
+  const taxaConversao = decididos ? aprovado.quantidade / decididos : null;
+  const totalOrcamentos = decididos + enviado.quantidade + aMontar.quantidade;
+  const valorTotalOrcado = aprovado.valor + reprovado.valor + cancelado.valor + enviado.valor + aMontar.valor;
+
+  res.json({
+    totalOrcamentos,
+    taxaConversao,
+    valorTotalOrcado,
+    porStatus: { aMontar, enviado, aprovado, reprovado, cancelado },
+  });
+});
+
 module.exports = router;

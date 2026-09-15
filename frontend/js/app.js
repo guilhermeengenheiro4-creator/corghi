@@ -27,6 +27,11 @@ function fmtData(iso) {
   return `${dia}/${mes}/${d.getUTCFullYear()}`;
 }
 
+function fmtMoeda(valor) {
+  const n = Number(valor) || 0;
+  return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
 function diasEmAberto(dataAbertura) {
   const abertura = new Date(dataAbertura);
   const hojeUTC = Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate());
@@ -142,6 +147,7 @@ function irParaView(view) {
   const renderers = {
     dashboard: renderDashboard,
     chamados: renderChamados,
+    orcamentos: renderOrcamentos,
     rme: renderRme,
     tarefas: renderTarefas,
     agenda: renderAgenda,
@@ -231,7 +237,7 @@ async function renderDashboard() {
       labels: kpis.porEquipamento.map((e) => e.equipamentoCategoria),
       datasets: [{ data: kpis.porEquipamento.map((e) => e._count), backgroundColor: '#5b8fd6' }],
     },
-    options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } },
+    options: { maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } },
   });
 
   chartSituacao = new Chart(ctxSit, {
@@ -241,9 +247,15 @@ async function renderDashboard() {
       datasets: [{
         data: kpis.porSituacao.map((s) => s._count),
         backgroundColor: ['#e2564f', '#e8963a', '#5b8fd6', '#a682e0', '#3fb88f', '#8b96a8'],
+        borderColor: '#1a1f27',
+        borderWidth: 2,
       }],
     },
-    options: { plugins: { legend: { position: 'bottom', labels: { color: '#8b96a8' } } } },
+    options: {
+      maintainAspectRatio: false,
+      cutout: '65%',
+      plugins: { legend: { position: 'right', align: 'center', labels: { color: '#8b96a8', boxWidth: 12, padding: 14 } } },
+    },
   });
 }
 
@@ -313,7 +325,7 @@ async function renderChamados() {
       labels: resumo.porMes.map((m) => m.mes),
       datasets: [{ data: resumo.porMes.map((m) => m.total), borderColor: '#e8963a', backgroundColor: 'rgba(232,150,58,.2)', fill: true, tension: 0.3 }],
     },
-    options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } },
+    options: { maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } },
   });
 
   chartSituacao = new Chart(document.getElementById('chartChamSituacao'), {
@@ -323,9 +335,15 @@ async function renderChamados() {
       datasets: [{
         data: resumo.porSituacao.map((s) => s._count),
         backgroundColor: ['#e2564f', '#e8963a', '#5b8fd6', '#a682e0', '#3fb88f', '#8b96a8'],
+        borderColor: '#1a1f27',
+        borderWidth: 2,
       }],
     },
-    options: { plugins: { legend: { position: 'bottom', labels: { color: '#8b96a8' } } } },
+    options: {
+      maintainAspectRatio: false,
+      cutout: '65%',
+      plugins: { legend: { position: 'right', align: 'center', labels: { color: '#8b96a8', boxWidth: 12, padding: 14 } } },
+    },
   });
 
   chartChamEquip = new Chart(document.getElementById('chartChamEquip'), {
@@ -334,7 +352,7 @@ async function renderChamados() {
       labels: resumo.porEquipamento.map((e) => e.equipamentoCategoria),
       datasets: [{ data: resumo.porEquipamento.map((e) => e._count), backgroundColor: '#5b8fd6' }],
     },
-    options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } },
+    options: { maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } },
   });
 
   chartChamResp = new Chart(document.getElementById('chartChamResp'), {
@@ -343,7 +361,7 @@ async function renderChamados() {
       labels: resumo.porResponsavel.map((r) => r.responsavel),
       datasets: [{ data: resumo.porResponsavel.map((r) => r._count), backgroundColor: '#3fb88f' }],
     },
-    options: { indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true } } },
+    options: { maintainAspectRatio: false, indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true } } },
   });
 
   document.getElementById('btnNovoChamado').addEventListener('click', () => abrirFormChamado());
@@ -467,6 +485,99 @@ function abrirFormChamado(chamado = null) {
     } catch (err) {
       toast(err.message, true);
     }
+  });
+}
+
+// ---------- ORÇAMENTOS ----------
+
+async function renderOrcamentos() {
+  const main = document.getElementById('mainContent');
+  main.innerHTML = '<p class="sectionLabel">Carregando…</p>';
+
+  let metricas;
+  try {
+    metricas = await api.get('/dashboard/orcamentos');
+  } catch (err) {
+    main.innerHTML = `<p>Erro ao carregar orçamentos: ${err.message}</p>`;
+    return;
+  }
+
+  const { aMontar, enviado, aprovado, reprovado, cancelado } = metricas.porStatus;
+  const taxaTexto = metricas.taxaConversao === null ? '—' : `${(metricas.taxaConversao * 100).toFixed(0)}%`;
+
+  main.innerHTML = `
+    <p class="sectionLabel">Influência da área técnica nas vendas</p>
+    <div class="kpiRow">
+      <div class="kpi" style="--accent:var(--blue)"><div class="val num">${metricas.totalOrcamentos}</div><div class="lbl">Total de orçamentos</div></div>
+      <div class="kpi" style="--accent:var(--green)"><div class="val num">${(metricas.taxaConversao === null ? '—' : taxaTexto)}</div><div class="lbl">Taxa de conversão</div></div>
+      <div class="kpi" style="--accent:var(--green)"><div class="val num">${fmtMoeda(aprovado.valor)}</div><div class="lbl">Valor aprovado (${aprovado.quantidade})</div></div>
+      <div class="kpi" style="--accent:var(--amber)"><div class="val num">${fmtMoeda(metricas.valorTotalOrcado)}</div><div class="lbl">Valor total orçado</div></div>
+      <div class="kpi" style="--accent:var(--red)"><div class="val num">${fmtMoeda(reprovado.valor + cancelado.valor)}</div><div class="lbl">Reprovado/Cancelado (${reprovado.quantidade + cancelado.quantidade})</div></div>
+      <div class="kpi" style="--accent:var(--blue)"><div class="val num">${aMontar.quantidade + enviado.quantidade}</div><div class="lbl">Aguardando decisão</div></div>
+    </div>
+
+    <p class="sectionLabel">Lista de orçamentos</p>
+    <div class="toolbar">
+      <div class="filters">
+        <select id="fOrcStatus">
+          <option value="">Status (todos)</option>
+          ${ORCAMENTO_STATUS.map((s) => `<option value="${s}">${s.replace(/_/g, ' ')}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div class="listPanel"><table id="tblOrcamentos"><thead>
+      <tr><th>Número</th><th>Data</th><th>Cliente</th><th>Assunto</th><th>Valor (R$)</th><th>Status</th></tr>
+    </thead><tbody></tbody></table></div>
+  `;
+
+  document.getElementById('fOrcStatus').addEventListener('change', carregarOrcamentos);
+  await carregarOrcamentos();
+}
+
+async function carregarOrcamentos() {
+  const status = document.getElementById('fOrcStatus').value;
+  const params = new URLSearchParams({ orcamento: 'true', pageSize: '500' });
+  if (status) params.set('orcamentoStatus', status);
+
+  const { itens } = await api.get(`/chamados?${params.toString()}`);
+  const tbody = document.querySelector('#tblOrcamentos tbody');
+
+  tbody.innerHTML = itens.map((c) => `
+    <tr>
+      <td class="num">${c.numero}</td>
+      <td>${fmtData(c.data)}</td>
+      <td>${c.cliente}</td>
+      <td>${(c.assunto || '').slice(0, 40)}</td>
+      <td><input type="number" step="0.01" data-valor="${c.id}" value="${c.valorOrcamento ?? ''}" style="width:110px;"></td>
+      <td>
+        <select data-status="${c.id}">
+          ${ORCAMENTO_STATUS.map((s) => `<option value="${s}" ${c.orcamentoStatus === s ? 'selected' : ''}>${s.replace(/_/g, ' ')}</option>`).join('')}
+        </select>
+      </td>
+    </tr>
+  `).join('') || '<tr><td colspan="6">Nenhum orçamento encontrado.</td></tr>';
+
+  tbody.querySelectorAll('[data-status]').forEach((sel) => {
+    sel.addEventListener('change', async () => {
+      try {
+        await api.put(`/chamados/${sel.dataset.status}`, { orcamentoStatus: sel.value });
+        toast('Status do orçamento atualizado.');
+        await renderOrcamentos();
+      } catch (err) {
+        toast(err.message, true);
+      }
+    });
+  });
+
+  tbody.querySelectorAll('[data-valor]').forEach((input) => {
+    input.addEventListener('change', async () => {
+      try {
+        await api.put(`/chamados/${input.dataset.valor}`, { valorOrcamento: input.value === '' ? null : input.value });
+        toast('Valor do orçamento atualizado.');
+      } catch (err) {
+        toast(err.message, true);
+      }
+    });
   });
 }
 
