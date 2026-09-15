@@ -10,7 +10,8 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
-    "seed": "node prisma/seed.js"
+    "seed": "node prisma/seed.js",
+    "migrar-legado": "node scripts/importar-legado.js"
   },
   "dependencies": {
     "@prisma/client": "^5.20.0",
@@ -23,7 +24,8 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
-    "prisma": "^5.20.0"
+    "prisma": "^5.20.0",
+    "xlsx": "^0.18.5"
   },
   "allowScripts": {
     "@prisma/client@5.22.0": true,

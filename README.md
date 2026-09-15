@@ -81,15 +81,43 @@ Se a API não estiver em `http://localhost:3000/api`, defina antes de carregar `
 - Exportação `.xlsx` (chamados, RME, relatório mensal com abas).
 - Relatório mensal com filtro por mês de referência.
 - Atualização em tempo real (polling/WebSocket) para o Modo TV.
-- Migração dos 555 chamados e 121 RME já existentes no protótipo para o banco real.
 - Deploy (Render/Railway/Fly.io) e domínio.
 
-## 6. Estrutura
+## 6. Migração dos dados reais (concluída)
+
+Os 560 chamados e 122 RME das planilhas de rede (`ORDEM DE SERVIÇO 2026.xlsx` e
+`PLANILHA AREA TECNICA.xlsx`) já foram importados para o banco local com
+`backend/scripts/importar-legado.js`:
+
+```bash
+cd backend
+npm run migrar-legado              # dry-run — só mostra o relatório, não grava nada
+npm run migrar-legado -- --commit  # grava de verdade (apaga dados existentes antes)
+```
+
+O script mapeia texto livre do legado para os enums do sistema novo (situação, categoria de
+equipamento) e ajusta o contador de numeração automática para continuar a partir do maior
+número importado. Pontos que exigiram decisão/normalização, para referência futura:
+
+- Situação "ORÇAMENTO" no legado não tinha sub-etapa registrada → todos os orçamentos
+  importados entraram como `ENVIADO`.
+- 3 chamados com categoria de equipamento fora do padrão (`CUBO`, `PARTNER70`,
+  `ESPEÇÃO VEIC.`) foram marcados como `OUTROS`, com a categoria original preservada em nota.
+- 1 chamado sem cliente informado no legado (`2026/254`) entrou com um marcador
+  `(NÃO INFORMADO NO LEGADO)` — revisar manualmente.
+- 1 número duplicado no legado (`2026/448`, dois chamados diferentes) — o segundo foi
+  renumerado automaticamente para não colidir.
+
+Se precisar reimportar (ex.: planilha atualizada), rode `--commit` de novo — o script apaga
+os chamados/RME existentes antes de gravar (usuários não são afetados).
+
+## 7. Estrutura
 
 ```
 backend/          API Express + Prisma
   prisma/schema.prisma   modelo de dados
   prisma/seed.js         usuários iniciais
+  scripts/importar-legado.js  importação das planilhas de rede
   src/routes/            um arquivo por módulo (chamados, rme, tarefas, agenda, pintura, usuarios)
 frontend/         SPA estática (index.html + css/ + js/)
 ```
