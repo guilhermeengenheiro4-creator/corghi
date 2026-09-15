@@ -171,12 +171,6 @@ async function renderDashboard() {
   const visitasCampo = agenda.filter((v) => v.tipo === 'CAMPO');
   const abertos = chamadosAbertos.itens;
 
-  const hoje = new Date();
-  const abertoNoAno = abertos.filter((c) => new Date(c.data).getUTCFullYear() === hoje.getUTCFullYear()).length;
-  const abertoNoMes = abertos.filter((c) => {
-    const d = new Date(c.data);
-    return d.getUTCFullYear() === hoje.getUTCFullYear() && d.getUTCMonth() === hoje.getUTCMonth();
-  }).length;
   // Em tratativa = qualquer situação que não seja "sem tratativa" (ABERTO) nem já encerrada (RESOLVIDO).
   const emTratativa = ['ORCAMENTO', 'SEM_RETORNO', 'OUTROS', 'DEVENDO']
     .reduce((soma, s) => soma + (porSituacaoMap[s] || 0), 0);
@@ -191,8 +185,8 @@ async function renderDashboard() {
   main.innerHTML = `
     <p class="sectionLabel">Visão geral</p>
     <div class="kpiRow">
-      <div class="kpi" style="--accent:var(--red)"><div class="val num">${abertoNoAno}</div><div class="lbl">Chamados em aberto no ano</div></div>
-      <div class="kpi" style="--accent:var(--amber)"><div class="val num">${abertoNoMes}</div><div class="lbl">Chamados em aberto no mês</div></div>
+      <div class="kpi" style="--accent:var(--red)"><div class="val num">${kpis.abertosNoAno}</div><div class="lbl">Chamados abertos no ano</div></div>
+      <div class="kpi" style="--accent:var(--amber)"><div class="val num">${kpis.abertosNoMes}</div><div class="lbl">Chamados abertos no mês</div></div>
       <div class="kpi" style="--accent:var(--blue)"><div class="val num">${emTratativa}</div><div class="lbl">Chamados em tratativa</div></div>
     </div>
     <div class="chartsRow">

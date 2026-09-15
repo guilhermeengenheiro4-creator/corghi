@@ -6,7 +6,15 @@ const router = express.Router();
 router.use(requireAuth);
 
 router.get('/kpis', async (req, res) => {
-  const [total, abertos, resolvidos, porSituacao, porEquipamento, rmeSemRetorno, rmeAguardando] = await Promise.all([
+  const agora = new Date();
+  const anoAtual = agora.getUTCFullYear();
+  const mesAtual = agora.getUTCMonth();
+  const inicioAno = new Date(Date.UTC(anoAtual, 0, 1));
+  const fimAno = new Date(Date.UTC(anoAtual + 1, 0, 1));
+  const inicioMes = new Date(Date.UTC(anoAtual, mesAtual, 1));
+  const fimMes = new Date(Date.UTC(anoAtual, mesAtual + 1, 1));
+
+  const [total, abertos, resolvidos, porSituacao, porEquipamento, rmeSemRetorno, rmeAguardando, abertosNoAno, abertosNoMes] = await Promise.all([
     prisma.chamado.count(),
     prisma.chamado.count({ where: { situacao: 'ABERTO' } }),
     prisma.chamado.count({ where: { situacao: 'RESOLVIDO' } }),
@@ -14,6 +22,8 @@ router.get('/kpis', async (req, res) => {
     prisma.chamado.groupBy({ by: ['equipamentoCategoria'], _count: true }),
     prisma.rme.count({ where: { cancelado: false, retornoData: null } }),
     prisma.rme.count({ where: { cancelado: false, retornoData: { not: null }, montagemData: null } }),
+    prisma.chamado.count({ where: { data: { gte: inicioAno, lt: fimAno } } }),
+    prisma.chamado.count({ where: { data: { gte: inicioMes, lt: fimMes } } }),
   ]);
 
   const orcamentosPorEtapa = await prisma.chamado.groupBy({
@@ -26,6 +36,8 @@ router.get('/kpis', async (req, res) => {
     total,
     abertos,
     resolvidos,
+    abertosNoAno,
+    abertosNoMes,
     porSituacao,
     porEquipamento,
     orcamentosPorEtapa,
