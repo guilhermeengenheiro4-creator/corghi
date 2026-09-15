@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Central de Chamados — Corghi Brasil</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<div id="loginScreen">
+  <form class="loginBox" id="loginForm">
+    <h1>Central de Chamados</h1>
+    <p>Corghi Brasil — acesso individual</p>
+    <label for="loginEmail">E-mail</label>
+    <input type="email" id="loginEmail" required autocomplete="username">
+    <label for="loginSenha">Senha</label>
+    <input type="password" id="loginSenha" required autocomplete="current-password">
+    <div class="formActions" style="margin-top:16px;">
+      <button type="submit" class="primaryBtn" style="width:100%;">Entrar</button>
+    </div>
+    <div class="loginError" id="loginError"></div>
+  </form>
+</div>
+
+<div id="app" class="hidden">
+  <header>
+    <div class="brand">
+      <div class="mark">CB</div>
+      <div>
+        <h1>Central de Chamados</h1>
+        <span>Corghi Brasil</span>
+      </div>
+    </div>
+    <div class="headerRight">
+      <span class="userChip">Olá, <b id="userNome"></b></span>
+      <button class="tvBtn tvHide" id="btnTv">Modo TV</button>
+      <button class="logoutBtn tvHide" id="btnLogout">Sair</button>
+    </div>
+  </header>
+
+  <nav id="mainNav">
+    <button data-view="dashboard" class="active">Dashboard</button>
+    <button data-view="chamados">Chamados</button>
+    <button data-view="rme">RME / Montagem</button>
+    <button data-view="tarefas">Tarefas</button>
+    <button data-view="agenda">Agenda</button>
+    <button data-view="pintura">Pintura</button>
+    <button data-view="usuarios" id="navUsuarios" class="hidden">Usuários</button>
+  </nav>
+
+  <main id="mainContent"></main>
+</div>
+
+<script src="js/api.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

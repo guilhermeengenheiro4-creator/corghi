@@ -1,0 +1,171 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Papel {
+  ADMIN
+  TECNICO
+}
+
+enum EquipamentoCategoria {
+  ALINHADORA
+  BALANCEADORA
+  DESMONTADORA
+  RAMPA
+  ELEVADOR
+  RECICLADORA
+  RETIFICADORA
+  OUTROS
+}
+
+enum Situacao {
+  ABERTO
+  ORCAMENTO
+  SEM_RETORNO
+  OUTROS
+  DEVENDO
+  RESOLVIDO
+}
+
+enum OrcamentoStatus {
+  A_MONTAR
+  ENVIADO
+  APROVADO
+  REPROVADO
+  CANCELADO
+}
+
+enum SituacaoFinanceira {
+  NAO_VERIFICADO
+  SEM_PENDENCIA
+  PENDENCIA_ENCONTRADA
+}
+
+enum TarefaStatus {
+  PENDENTE
+  CONCLUIDA
+}
+
+enum TipoVisita {
+  SHOWROOM
+  CAMPO
+}
+
+enum PinturaStatus {
+  AGUARDANDO
+  EM_PINTURA
+  CONCLUIDO
+}
+
+model Usuario {
+  id        String   @id @default(uuid())
+  nome      String
+  email     String   @unique
+  senhaHash String
+  papel     Papel    @default(TECNICO)
+  ativo     Boolean  @default(true)
+  criadoEm  DateTime @default(now())
+
+  tarefasAtribuidas Tarefa[] @relation("AtribuidoPara")
+  tarefasCriadas    Tarefa[] @relation("AtribuidoPor")
+}
+
+model Chamado {
+  id                   String              @id @default(uuid())
+  numero               String              @unique
+  responsavel          String
+  data                 DateTime
+  cliente              String
+  contato              String?
+  cidade               String?
+  uf                   String?
+  nf                   String?
+  representante        String?
+  garantia             Boolean             @default(false)
+  italiaAjuda          Boolean             @default(false)
+  equipamentoCategoria EquipamentoCategoria
+  modelo               String?
+  serie                String?
+  assunto              String
+  acoesRealizadas      String?
+  conclusao            String?
+  situacao             Situacao            @default(ABERTO)
+  dataFechamento       DateTime?
+  orcamentoStatus      OrcamentoStatus?
+  cnpj                 String?
+  situacaoFinanceira   SituacaoFinanceira  @default(NAO_VERIFICADO)
+  criadoEm             DateTime            @default(now())
+  atualizadoEm         DateTime            @updatedAt
+}
+
+model Rme {
+  id            String    @id @default(uuid())
+  nf            String
+  cliente       String
+  representante String?
+  tecnico       String?
+  valor         Decimal?  @db.Decimal(12, 2)
+  relatorio     String?
+  rmeData       DateTime?
+  retornoData   DateTime?
+  montagemData  DateTime?
+  cancelado     Boolean   @default(false)
+  criadoEm      DateTime  @default(now())
+  atualizadoEm  DateTime  @updatedAt
+}
+
+model SerieReferencia {
+  id        String    @id @default(uuid())
+  serie     String    @unique
+  nf        String
+  cliente   String
+  modelo    String?
+  dataVenda DateTime?
+}
+
+model Tarefa {
+  id              String       @id @default(uuid())
+  titulo          String
+  descricao       String?
+  atribuidoParaId String
+  atribuidoPara   Usuario      @relation("AtribuidoPara", fields: [atribuidoParaId], references: [id])
+  atribuidoPorId  String
+  atribuidoPor    Usuario      @relation("AtribuidoPor", fields: [atribuidoPorId], references: [id])
+  dataCriacao     DateTime     @default(now())
+  prazo           DateTime?
+  status          TarefaStatus @default(PENDENTE)
+  dataConclusao   DateTime?
+  observacao      String?
+}
+
+model VisitaAgenda {
+  id            String     @id @default(uuid())
+  tipo          TipoVisita
+  data          DateTime
+  hora          String?
+  representante String?
+  responsavel   String?
+  linha         String?
+  observacao    String?
+  criadoEm      DateTime   @default(now())
+}
+
+model ContadorChamado {
+  ano    Int @id
+  ultimo Int @default(0)
+}
+
+model Pintura {
+  id           String        @id @default(uuid())
+  equipamento  String
+  serie        String?
+  cliente      String?
+  status       PinturaStatus @default(AGUARDANDO)
+  criadoEm     DateTime      @default(now())
+  atualizadoEm DateTime      @updatedAt
+}
