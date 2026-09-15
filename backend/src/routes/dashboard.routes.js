@@ -65,10 +65,16 @@ router.get('/chamados', async (req, res) => {
 });
 
 // Métrica de quanto a área técnica influencia vendas: conversão de orçamentos e valor gerado.
+// `desde`: filtra pela data do chamado — dados antigos (importados do legado) não têm
+// número/data de envio preenchidos manualmente, então o padrão no frontend só considera
+// chamados a partir de uma data de corte.
 router.get('/orcamentos', async (req, res) => {
+  const { desde } = req.query;
+  const whereData = desde ? { data: { gte: new Date(desde) } } : {};
+
   const porStatus = await prisma.chamado.groupBy({
     by: ['orcamentoStatus'],
-    where: { orcamentoStatus: { not: null } },
+    where: { orcamentoStatus: { not: null }, ...whereData },
     _count: true,
     _sum: { valorOrcamento: true },
   });
@@ -95,6 +101,7 @@ router.get('/orcamentos', async (req, res) => {
     where: {
       orcamentoStatus: { in: ['A_MONTAR', 'ENVIADO'] },
       dataEnvioOrcamento: { lt: limiteVencimento },
+      ...whereData,
     },
   });
 

@@ -74,7 +74,7 @@ function aplicarRegrasSituacao(dados, existente) {
 }
 
 router.get('/', async (req, res) => {
-  const { situacao, equipamento, uf, q, orcamento, orcamentoStatus, page = '1', pageSize = '50' } = req.query;
+  const { situacao, equipamento, uf, q, orcamento, orcamentoStatus, dataDesde, page = '1', pageSize = '50' } = req.query;
 
   const where = {};
   if (situacao) where.situacao = situacao;
@@ -82,6 +82,7 @@ router.get('/', async (req, res) => {
   if (uf) where.uf = uf;
   if (orcamento === 'true') where.orcamentoStatus = { not: null };
   if (orcamentoStatus) where.orcamentoStatus = orcamentoStatus;
+  if (dataDesde) where.data = { gte: new Date(dataDesde) };
   if (q) {
     where.OR = [
       { cliente: { contains: q, mode: 'insensitive' } },

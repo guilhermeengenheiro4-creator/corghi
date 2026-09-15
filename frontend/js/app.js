@@ -512,13 +512,17 @@ function abrirFormChamado(chamado = null) {
 
 // ---------- ORÇAMENTOS ----------
 
+// Chamados importados do legado (antes desta data) não têm número/data de envio de
+// orçamento preenchidos manualmente — por padrão a aba só considera daqui pra frente.
+let orcamentosDesde = '2026-08-07';
+
 async function renderOrcamentos() {
   const main = document.getElementById('mainContent');
   main.innerHTML = '<p class="sectionLabel">Carregando…</p>';
 
   let metricas;
   try {
-    metricas = await api.get('/dashboard/orcamentos');
+    metricas = await api.get(`/dashboard/orcamentos?desde=${orcamentosDesde}`);
   } catch (err) {
     main.innerHTML = `<p>Erro ao carregar orçamentos: ${err.message}</p>`;
     return;
@@ -542,6 +546,10 @@ async function renderOrcamentos() {
     <p class="sectionLabel">Lista de orçamentos</p>
     <div class="toolbar">
       <div class="filters">
+        <label style="font-size:11.5px;color:var(--text-dim);display:flex;align-items:center;gap:6px;">
+          Chamados a partir de
+          <input type="date" id="fOrcDesde" value="${orcamentosDesde}">
+        </label>
         <select id="fOrcStatus">
           <option value="">Status (todos)</option>
           ${ORCAMENTO_STATUS.map((s) => `<option value="${s}">${s.replace(/_/g, ' ')}</option>`).join('')}
@@ -555,13 +563,17 @@ async function renderOrcamentos() {
     </thead><tbody></tbody></table></div>
   `;
 
+  document.getElementById('fOrcDesde').addEventListener('change', (e) => {
+    orcamentosDesde = e.target.value;
+    renderOrcamentos();
+  });
   document.getElementById('fOrcStatus').addEventListener('change', carregarOrcamentos);
   await carregarOrcamentos();
 }
 
 async function carregarOrcamentos() {
   const status = document.getElementById('fOrcStatus').value;
-  const params = new URLSearchParams({ orcamento: 'true', pageSize: '500' });
+  const params = new URLSearchParams({ orcamento: 'true', pageSize: '500', dataDesde: orcamentosDesde });
   if (status) params.set('orcamentoStatus', status);
 
   const { itens } = await api.get(`/chamados?${params.toString()}`);
