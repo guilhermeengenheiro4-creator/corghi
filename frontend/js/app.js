@@ -14,10 +14,14 @@ function badge(valor) {
   return `<span class="badge ${cls}">${valor.replace(/_/g, ' ')}</span>`;
 }
 
+// Datas são armazenadas como "dia calendário" (meia-noite UTC); usamos os componentes UTC
+// para exibir, senão o fuso do navegador pode "voltar" um dia.
 function fmtData(iso) {
   if (!iso) return '—';
   const d = new Date(iso);
-  return d.toLocaleDateString('pt-BR');
+  const dia = String(d.getUTCDate()).padStart(2, '0');
+  const mes = String(d.getUTCMonth() + 1).padStart(2, '0');
+  return `${dia}/${mes}/${d.getUTCFullYear()}`;
 }
 
 function toast(msg, isError = false) {
@@ -27,6 +31,43 @@ function toast(msg, isError = false) {
   document.body.appendChild(el);
   setTimeout(() => { el.style.opacity = '0'; }, 2200);
   setTimeout(() => el.remove(), 2600);
+}
+
+// ---------- MODAL (substitui prompt()/confirm() nativos, que não funcionam em todo contexto) ----------
+
+function abrirModal({ titulo, mensagem, campoTexto = false, valorInicial = '', textoConfirmar = 'Confirmar' }) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;z-index:1000;';
+    overlay.innerHTML = `
+      <div class="formPanel" style="width:360px;max-width:90vw;">
+        <h3 style="margin:0 0 10px;font-size:15px;">${titulo}</h3>
+        ${mensagem ? `<p style="color:var(--text-dim);font-size:13px;margin:0 0 12px;">${mensagem}</p>` : ''}
+        ${campoTexto ? `<input type="text" id="modalInput" style="width:100%;margin-bottom:14px;" value="${valorInicial}">` : ''}
+        <div class="formActions">
+          <button class="ghostBtn" id="modalCancelar">Cancelar</button>
+          <button class="primaryBtn" id="modalConfirmar">${textoConfirmar}</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    const input = overlay.querySelector('#modalInput');
+    if (input) input.focus();
+
+    const fechar = (valor) => { overlay.remove(); resolve(valor); };
+    overlay.querySelector('#modalCancelar').addEventListener('click', () => fechar(null));
+    overlay.querySelector('#modalConfirmar').addEventListener('click', () => fechar(input ? input.value : true));
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) fechar(null); });
+  });
+}
+
+function pedirTexto(titulo, mensagem, valorInicial = '') {
+  return abrirModal({ titulo, mensagem, campoTexto: true, valorInicial });
+}
+
+function pedirConfirmacao(titulo, mensagem) {
+  return abrirModal({ titulo, mensagem, textoConfirmar: 'Sim, confirmar' });
 }
 
 // ---------- AUTH ----------
@@ -460,8 +501,9 @@ async function renderTarefas() {
 
   tbody.querySelectorAll('[data-concluir]').forEach((btn) => {
     btn.addEventListener('click', async () => {
-      const observacao = prompt('Observação (opcional):') || undefined;
-      await api.patch(`/tarefas/${btn.dataset.concluir}/status`, { status: 'CONCLUIDA', observacao });
+      const observacao = await pedirTexto('Concluir tarefa', 'Observação (opcional):');
+      if (observacao === null) return;
+      await api.patch(`/tarefas/${btn.dataset.concluir}/status`, { status: 'CONCLUIDA', observacao: observacao || undefined });
       renderTarefas();
     });
   });
@@ -527,7 +569,8 @@ async function renderAgenda() {
 
   document.querySelectorAll('#tblAgenda [data-excluir]').forEach((btn) => {
     btn.addEventListener('click', async () => {
-      if (!confirm('Excluir esta visita?')) return;
+      const ok = await pedirConfirmacao('Excluir visita', 'Tem certeza que deseja excluir esta visita?');
+      if (!ok) return;
       await api.delete(`/agenda/${btn.dataset.excluir}`);
       renderAgenda();
     });
@@ -648,7 +691,7 @@ async function renderUsuarios() {
   });
   document.querySelectorAll('#tblUsuarios [data-reset]').forEach((btn) => {
     btn.addEventListener('click', async () => {
-      const nova = prompt('Nova senha provisória (mín. 6 caracteres):');
+      const nova = await pedirTexto('Resetar senha', 'Nova senha provisória (mín. 6 caracteres):');
       if (!nova) return;
       try {
         await api.post(`/usuarios/${btn.dataset.reset}/resetar-senha`, { novaSenha: nova });
