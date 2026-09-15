@@ -147,15 +147,29 @@ async function renderDashboard() {
   const main = document.getElementById('mainContent');
   main.innerHTML = '<p class="sectionLabel">Carregando…</p>';
 
-  let kpis;
+  let kpis, agenda, chamadosAbertos;
   try {
-    kpis = await api.get('/dashboard/kpis');
+    [kpis, agenda, chamadosAbertos] = await Promise.all([
+      api.get('/dashboard/kpis'),
+      api.get('/agenda'),
+      api.get('/chamados?situacao=ABERTO&pageSize=200'),
+    ]);
   } catch (err) {
     main.innerHTML = `<p>Erro ao carregar dashboard: ${err.message}</p>`;
     return;
   }
 
   const porSituacaoMap = Object.fromEntries(kpis.porSituacao.map((s) => [s.situacao, s._count]));
+  const visitasShowroom = agenda.filter((v) => v.tipo === 'SHOWROOM');
+  const visitasCampo = agenda.filter((v) => v.tipo === 'CAMPO');
+  const abertos = chamadosAbertos.itens;
+
+  const linhaVisita = (v) => `
+    <tr><td>${fmtData(v.data)}</td><td>${v.hora || '—'}</td><td>${v.representante || '—'}</td><td>${v.responsavel || '—'}</td><td>${v.linha || '—'}</td></tr>
+  `;
+  const linhaChamado = (c) => `
+    <tr><td class="num">${c.numero}</td><td>${fmtData(c.data)}</td><td>${c.cliente}</td><td>${c.equipamentoCategoria}</td><td>${(c.assunto || '').slice(0, 40)}</td></tr>
+  `;
 
   main.innerHTML = `
     <p class="sectionLabel">Visão geral</p>
@@ -170,6 +184,32 @@ async function renderDashboard() {
     <div class="chartsRow">
       <div class="panel"><h3>Chamados por equipamento</h3><div class="chartWrap"><canvas id="chartEquip"></canvas></div></div>
       <div class="panel"><h3>Chamados por situação</h3><div class="chartWrap"><canvas id="chartSituacao"></canvas></div></div>
+    </div>
+
+    <p class="sectionLabel">Chamados em aberto (${abertos.length})</p>
+    <div class="listPanel" style="max-height:320px;overflow-y:auto;">
+      <table><thead><tr><th>Número</th><th>Data</th><th>Cliente</th><th>Equipamento</th><th>Assunto</th></tr></thead>
+        <tbody>${abertos.map(linhaChamado).join('') || '<tr><td colspan="5">Nenhum chamado em aberto.</td></tr>'}</tbody>
+      </table>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+      <div>
+        <p class="sectionLabel">Visitas Showroom (${visitasShowroom.length})</p>
+        <div class="listPanel" style="max-height:280px;overflow-y:auto;">
+          <table><thead><tr><th>Data</th><th>Hora</th><th>Repres.</th><th>Respons.</th><th>Linha</th></tr></thead>
+            <tbody>${visitasShowroom.map(linhaVisita).join('') || '<tr><td colspan="5">Nenhuma visita agendada.</td></tr>'}</tbody>
+          </table>
+        </div>
+      </div>
+      <div>
+        <p class="sectionLabel">Visitas em Campo (${visitasCampo.length})</p>
+        <div class="listPanel" style="max-height:280px;overflow-y:auto;">
+          <table><thead><tr><th>Data</th><th>Hora</th><th>Repres.</th><th>Respons.</th><th>Linha</th></tr></thead>
+            <tbody>${visitasCampo.map(linhaVisita).join('') || '<tr><td colspan="5">Nenhuma visita agendada.</td></tr>'}</tbody>
+          </table>
+        </div>
+      </div>
     </div>
   `;
 
