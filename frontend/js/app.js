@@ -174,9 +174,8 @@ async function renderDashboard() {
   const visitasCampo = agenda.filter((v) => v.tipo === 'CAMPO');
   const abertos = chamadosAbertos.itens;
 
-  // Em tratativa = qualquer situação que não seja "sem tratativa" (ABERTO) nem já encerrada (RESOLVIDO).
-  const emTratativa = ['ORCAMENTO', 'SEM_RETORNO', 'OUTROS', 'DEVENDO']
-    .reduce((soma, s) => soma + (porSituacaoMap[s] || 0), 0);
+  // Em tratativa = tudo que ainda não foi encerrado (qualquer situação exceto RESOLVIDO).
+  const emTratativa = kpis.total - (porSituacaoMap.RESOLVIDO || 0);
 
   const linhaVisita = (v) => `
     <tr><td>${fmtData(v.data)}</td><td>${v.hora || '—'}</td><td>${v.representante || '—'}</td><td>${v.responsavel || '—'}</td><td>${v.linha || '—'}</td></tr>
