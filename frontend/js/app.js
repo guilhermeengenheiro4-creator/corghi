@@ -171,6 +171,16 @@ async function renderDashboard() {
   const visitasCampo = agenda.filter((v) => v.tipo === 'CAMPO');
   const abertos = chamadosAbertos.itens;
 
+  const hoje = new Date();
+  const abertoNoAno = abertos.filter((c) => new Date(c.data).getUTCFullYear() === hoje.getUTCFullYear()).length;
+  const abertoNoMes = abertos.filter((c) => {
+    const d = new Date(c.data);
+    return d.getUTCFullYear() === hoje.getUTCFullYear() && d.getUTCMonth() === hoje.getUTCMonth();
+  }).length;
+  // Em tratativa = qualquer situação que não seja "sem tratativa" (ABERTO) nem já encerrada (RESOLVIDO).
+  const emTratativa = ['ORCAMENTO', 'SEM_RETORNO', 'OUTROS', 'DEVENDO']
+    .reduce((soma, s) => soma + (porSituacaoMap[s] || 0), 0);
+
   const linhaVisita = (v) => `
     <tr><td>${fmtData(v.data)}</td><td>${v.hora || '—'}</td><td>${v.representante || '—'}</td><td>${v.responsavel || '—'}</td><td>${v.linha || '—'}</td></tr>
   `;
@@ -181,12 +191,9 @@ async function renderDashboard() {
   main.innerHTML = `
     <p class="sectionLabel">Visão geral</p>
     <div class="kpiRow">
-      <div class="kpi" style="--accent:var(--blue)"><div class="val num">${kpis.total}</div><div class="lbl">Total de chamados</div></div>
-      <div class="kpi" style="--accent:var(--red)"><div class="val num">${kpis.abertos}</div><div class="lbl">Abertos</div></div>
-      <div class="kpi" style="--accent:var(--green)"><div class="val num">${kpis.resolvidos}</div><div class="lbl">Resolvidos</div></div>
-      <div class="kpi" style="--accent:var(--amber)"><div class="val num">${porSituacaoMap.ORCAMENTO || 0}</div><div class="lbl">Em orçamento</div></div>
-      <div class="kpi" style="--accent:var(--purple)"><div class="val num">${kpis.rme.semRetorno}</div><div class="lbl">RME sem retorno</div></div>
-      <div class="kpi" style="--accent:var(--blue)"><div class="val num">${kpis.rme.aguardandoInstalacao}</div><div class="lbl">Aguardando instalação</div></div>
+      <div class="kpi" style="--accent:var(--red)"><div class="val num">${abertoNoAno}</div><div class="lbl">Chamados em aberto no ano</div></div>
+      <div class="kpi" style="--accent:var(--amber)"><div class="val num">${abertoNoMes}</div><div class="lbl">Chamados em aberto no mês</div></div>
+      <div class="kpi" style="--accent:var(--blue)"><div class="val num">${emTratativa}</div><div class="lbl">Chamados em tratativa</div></div>
     </div>
     <div class="chartsRow">
       <div class="panel"><h3>Chamados por equipamento</h3><div class="chartWrap"><canvas id="chartEquip"></canvas></div></div>
