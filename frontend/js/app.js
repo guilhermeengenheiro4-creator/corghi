@@ -563,7 +563,10 @@ async function renderOrcamentos() {
     </thead><tbody></tbody></table></div>
   `;
 
-  document.getElementById('fOrcDesde').addEventListener('change', (e) => {
+  // Usa "blur" (não "change") porque o navegador dispara "change" a cada dígito digitado
+  // no campo de data, o que recarregaria a tabela inteira e tiraria o foco no meio da digitação.
+  document.getElementById('fOrcDesde').addEventListener('blur', (e) => {
+    if (!e.target.value || e.target.value === orcamentosDesde) return;
     orcamentosDesde = e.target.value;
     renderOrcamentos();
   });
@@ -608,8 +611,10 @@ async function carregarOrcamentos() {
     });
   });
 
+  // "blur" em vez de "change": em campos de data, o navegador dispara "change" a cada
+  // dígito digitado, o que recarregava a tabela inteira e tirava o foco no meio da digitação.
   tbody.querySelectorAll('[data-valor]').forEach((input) => {
-    input.addEventListener('change', async () => {
+    input.addEventListener('blur', async () => {
       try {
         await api.put(`/chamados/${input.dataset.valor}`, { valorOrcamento: input.value === '' ? null : input.value });
         toast('Valor do orçamento atualizado.');
@@ -621,7 +626,7 @@ async function carregarOrcamentos() {
   });
 
   tbody.querySelectorAll('[data-numero]').forEach((input) => {
-    input.addEventListener('change', async () => {
+    input.addEventListener('blur', async () => {
       try {
         await api.put(`/chamados/${input.dataset.numero}`, { numeroOrcamento: input.value || null });
         toast('Número do orçamento atualizado.');
@@ -632,7 +637,7 @@ async function carregarOrcamentos() {
   });
 
   tbody.querySelectorAll('[data-envio]').forEach((input) => {
-    input.addEventListener('change', async () => {
+    input.addEventListener('blur', async () => {
       try {
         await api.put(`/chamados/${input.dataset.envio}`, { dataEnvioOrcamento: input.value || null });
         toast('Data de envio atualizada.');
