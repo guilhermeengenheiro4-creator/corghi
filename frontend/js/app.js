@@ -174,9 +174,6 @@ async function renderDashboard() {
   const visitasCampo = agenda.filter((v) => v.tipo === 'CAMPO');
   const abertos = chamadosAbertos.itens;
 
-  // Em tratativa = tudo que ainda não foi encerrado (qualquer situação exceto RESOLVIDO).
-  const emTratativa = kpis.total - (porSituacaoMap.RESOLVIDO || 0);
-
   const linhaVisita = (v) => `
     <tr><td>${fmtData(v.data)}</td><td>${v.hora || '—'}</td><td>${v.representante || '—'}</td><td>${v.responsavel || '—'}</td><td>${v.linha || '—'}</td></tr>
   `;
@@ -189,7 +186,7 @@ async function renderDashboard() {
     <div class="kpiRow">
       <div class="kpi" style="--accent:var(--red)"><div class="val num">${kpis.abertosNoAno}</div><div class="lbl">Chamados abertos no ano</div></div>
       <div class="kpi" style="--accent:var(--amber)"><div class="val num">${kpis.abertosNoMes}</div><div class="lbl">Chamados abertos no mês</div></div>
-      <div class="kpi" style="--accent:var(--blue)"><div class="val num">${emTratativa}</div><div class="lbl">Chamados em aberto</div></div>
+      <div class="kpi" style="--accent:var(--blue)"><div class="val num">${kpis.abertos}</div><div class="lbl">Chamados em aberto</div></div>
     </div>
     <div class="chartsRow">
       <div class="panel"><h3>Chamados por equipamento</h3><div class="chartWrap"><canvas id="chartEquip"></canvas></div></div>
