@@ -88,10 +88,21 @@ router.get('/orcamentos', async (req, res) => {
   const totalOrcamentos = decididos + enviado.quantidade + aMontar.quantidade;
   const valorTotalOrcado = aprovado.valor + reprovado.valor + cancelado.valor + enviado.valor + aMontar.valor;
 
+  // Vencido = ainda não decidido (A_MONTAR/ENVIADO) e já passou dos 7 dias corridos desde o envio.
+  const PRAZO_DIAS = 7;
+  const limiteVencimento = new Date(Date.now() - PRAZO_DIAS * 86400000);
+  const vencidos = await prisma.chamado.count({
+    where: {
+      orcamentoStatus: { in: ['A_MONTAR', 'ENVIADO'] },
+      dataEnvioOrcamento: { lt: limiteVencimento },
+    },
+  });
+
   res.json({
     totalOrcamentos,
     taxaConversao,
     valorTotalOrcado,
+    vencidos,
     porStatus: { aMontar, enviado, aprovado, reprovado, cancelado },
   });
 });

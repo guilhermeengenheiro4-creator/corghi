@@ -97,6 +97,8 @@ model Chamado {
   situacao             Situacao            @default(ABERTO)
   dataFechamento       DateTime?
   orcamentoStatus      OrcamentoStatus?
+  numeroOrcamento      String?
+  dataEnvioOrcamento   DateTime?
   valorOrcamento       Decimal?            @db.Decimal(12, 2)
   cnpj                 String?
   situacaoFinanceira   SituacaoFinanceira  @default(NAO_VERIFICADO)

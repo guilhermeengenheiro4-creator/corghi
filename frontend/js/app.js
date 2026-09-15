@@ -39,6 +39,28 @@ function diasEmAberto(dataAbertura) {
   return Math.max(0, Math.round((hojeUTC - aberturaUTC) / 86400000));
 }
 
+const PRAZO_ORCAMENTO_DIAS = 7;
+
+// Orçamentos da Corghi têm prazo de 7 dias corridos a partir do envio ao cliente.
+function prazoOrcamentoHtml(dataEnvioOrcamento, orcamentoStatus) {
+  if (!dataEnvioOrcamento) return '<span style="color:var(--text-faint);">não enviado</span>';
+
+  if (['APROVADO', 'REPROVADO', 'CANCELADO'].includes(orcamentoStatus)) {
+    return '<span class="badge b-resolvido">decidido</span>';
+  }
+
+  const envio = new Date(dataEnvioOrcamento);
+  const envioUTC = Date.UTC(envio.getUTCFullYear(), envio.getUTCMonth(), envio.getUTCDate());
+  const vencimentoUTC = envioUTC + PRAZO_ORCAMENTO_DIAS * 86400000;
+  const hoje = new Date();
+  const hojeUTC = Date.UTC(hoje.getUTCFullYear(), hoje.getUTCMonth(), hoje.getUTCDate());
+  const diasRestantes = Math.round((vencimentoUTC - hojeUTC) / 86400000);
+
+  if (diasRestantes < 0) return `<span class="badge b-aberto">vencido há ${-diasRestantes}d</span>`;
+  if (diasRestantes === 0) return '<span class="badge b-orcamento">vence hoje</span>';
+  return `<span class="badge b-orcamento">${diasRestantes}d restantes</span>`;
+}
+
 function toast(msg, isError = false) {
   const el = document.createElement('div');
   el.className = 'toast' + (isError ? ' error' : '');
@@ -514,6 +536,7 @@ async function renderOrcamentos() {
       <div class="kpi" style="--accent:var(--amber)"><div class="val num">${fmtMoeda(metricas.valorTotalOrcado)}</div><div class="lbl">Valor total orçado</div></div>
       <div class="kpi" style="--accent:var(--red)"><div class="val num">${fmtMoeda(reprovado.valor + cancelado.valor)}</div><div class="lbl">Reprovado/Cancelado (${reprovado.quantidade + cancelado.quantidade})</div></div>
       <div class="kpi" style="--accent:var(--blue)"><div class="val num">${aMontar.quantidade + enviado.quantidade}</div><div class="lbl">Aguardando decisão</div></div>
+      <div class="kpi" style="--accent:var(--red)"><div class="val num">${metricas.vencidos}</div><div class="lbl">Vencidos (prazo 7 dias)</div></div>
     </div>
 
     <p class="sectionLabel">Lista de orçamentos</p>
@@ -525,8 +548,10 @@ async function renderOrcamentos() {
         </select>
       </div>
     </div>
-    <div class="listPanel"><table id="tblOrcamentos"><thead>
-      <tr><th>Número</th><th>Data</th><th>Cliente</th><th>Assunto</th><th>Valor (R$)</th><th>Status</th></tr>
+    <div class="listPanel" style="overflow-x:auto;"><table id="tblOrcamentos"><thead>
+      <tr>
+        <th>Chamado</th><th>Cliente</th><th>Assunto</th><th>Nº orçamento</th><th>Envio</th><th>Prazo (7 dias)</th><th>Valor (R$)</th><th>Status</th>
+      </tr>
     </thead><tbody></tbody></table></div>
   `;
 
@@ -545,9 +570,11 @@ async function carregarOrcamentos() {
   tbody.innerHTML = itens.map((c) => `
     <tr>
       <td class="num">${c.numero}</td>
-      <td>${fmtData(c.data)}</td>
       <td>${c.cliente}</td>
       <td>${(c.assunto || '').slice(0, 40)}</td>
+      <td><input type="text" data-numero="${c.id}" value="${c.numeroOrcamento ?? ''}" style="width:100px;" placeholder="Nº"></td>
+      <td><input type="date" data-envio="${c.id}" value="${c.dataEnvioOrcamento ? c.dataEnvioOrcamento.slice(0, 10) : ''}" style="width:145px;"></td>
+      <td>${prazoOrcamentoHtml(c.dataEnvioOrcamento, c.orcamentoStatus)}</td>
       <td><input type="number" step="0.01" data-valor="${c.id}" value="${c.valorOrcamento ?? ''}" style="width:110px;"></td>
       <td>
         <select data-status="${c.id}">
@@ -555,7 +582,7 @@ async function carregarOrcamentos() {
         </select>
       </td>
     </tr>
-  `).join('') || '<tr><td colspan="6">Nenhum orçamento encontrado.</td></tr>';
+  `).join('') || '<tr><td colspan="8">Nenhum orçamento encontrado.</td></tr>';
 
   tbody.querySelectorAll('[data-status]').forEach((sel) => {
     sel.addEventListener('change', async () => {
@@ -574,6 +601,30 @@ async function carregarOrcamentos() {
       try {
         await api.put(`/chamados/${input.dataset.valor}`, { valorOrcamento: input.value === '' ? null : input.value });
         toast('Valor do orçamento atualizado.');
+        await renderOrcamentos();
+      } catch (err) {
+        toast(err.message, true);
+      }
+    });
+  });
+
+  tbody.querySelectorAll('[data-numero]').forEach((input) => {
+    input.addEventListener('change', async () => {
+      try {
+        await api.put(`/chamados/${input.dataset.numero}`, { numeroOrcamento: input.value || null });
+        toast('Número do orçamento atualizado.');
+      } catch (err) {
+        toast(err.message, true);
+      }
+    });
+  });
+
+  tbody.querySelectorAll('[data-envio]').forEach((input) => {
+    input.addEventListener('change', async () => {
+      try {
+        await api.put(`/chamados/${input.dataset.envio}`, { dataEnvioOrcamento: input.value || null });
+        toast('Data de envio atualizada.');
+        await renderOrcamentos();
       } catch (err) {
         toast(err.message, true);
       }

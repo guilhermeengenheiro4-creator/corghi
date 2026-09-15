@@ -34,6 +34,8 @@ const chamadoSchema = z.object({
   conclusao: z.string().optional().nullable(),
   situacao: z.enum(SITUACOES).optional(),
   orcamentoStatus: z.enum(ORCAMENTO_STATUS).optional().nullable(),
+  numeroOrcamento: z.string().optional().nullable(),
+  dataEnvioOrcamento: z.coerce.date().optional().nullable(),
   valorOrcamento: z.coerce.number().optional().nullable(),
   cnpj: z.string().optional().nullable(),
   situacaoFinanceira: z.enum(SITUACAO_FINANCEIRA).optional(),
