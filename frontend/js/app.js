@@ -189,7 +189,7 @@ async function renderDashboard() {
     <div class="kpiRow">
       <div class="kpi" style="--accent:var(--red)"><div class="val num">${kpis.abertosNoAno}</div><div class="lbl">Chamados abertos no ano</div></div>
       <div class="kpi" style="--accent:var(--amber)"><div class="val num">${kpis.abertosNoMes}</div><div class="lbl">Chamados abertos no mês</div></div>
-      <div class="kpi" style="--accent:var(--blue)"><div class="val num">${emTratativa}</div><div class="lbl">Chamados em tratativa</div></div>
+      <div class="kpi" style="--accent:var(--blue)"><div class="val num">${emTratativa}</div><div class="lbl">Chamados em aberto</div></div>
     </div>
     <div class="chartsRow">
       <div class="panel"><h3>Chamados por equipamento</h3><div class="chartWrap"><canvas id="chartEquip"></canvas></div></div>
