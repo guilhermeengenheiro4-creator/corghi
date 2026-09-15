@@ -45,4 +45,23 @@ router.get('/kpis', async (req, res) => {
   });
 });
 
+// Dashboard específico da aba Chamados: visão detalhada só de chamados (situação, equipamento,
+// responsável, evolução mensal).
+router.get('/chamados', async (req, res) => {
+  const [total, porSituacao, porEquipamento, porResponsavel, porMes] = await Promise.all([
+    prisma.chamado.count(),
+    prisma.chamado.groupBy({ by: ['situacao'], _count: true }),
+    prisma.chamado.groupBy({ by: ['equipamentoCategoria'], _count: true }),
+    prisma.chamado.groupBy({ by: ['responsavel'], _count: true, orderBy: { _count: { responsavel: 'desc' } } }),
+    prisma.$queryRaw`
+      SELECT to_char(date_trunc('month', "data"), 'YYYY-MM') AS mes, COUNT(*)::int AS total
+      FROM "Chamado"
+      GROUP BY 1
+      ORDER BY 1
+    `,
+  ]);
+
+  res.json({ total, porSituacao, porEquipamento, porResponsavel, porMes });
+});
+
 module.exports = router;

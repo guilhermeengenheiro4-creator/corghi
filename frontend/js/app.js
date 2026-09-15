@@ -3,6 +3,9 @@ let currentView = 'dashboard';
 let usuariosCache = [];
 let chartEquip = null;
 let chartSituacao = null;
+let chartChamMes = null;
+let chartChamEquip = null;
+let chartChamResp = null;
 
 const EQUIPAMENTOS = ['ALINHADORA', 'BALANCEADORA', 'DESMONTADORA', 'RAMPA', 'ELEVADOR', 'RECICLADORA', 'RETIFICADORA', 'OUTROS'];
 const SITUACOES = ['ABERTO', 'ORCAMENTO', 'SEM_RETORNO', 'OUTROS', 'DEVENDO', 'RESOLVIDO'];
@@ -257,8 +260,39 @@ async function carregarUsuariosSeNecessario() {
 
 async function renderChamados() {
   const main = document.getElementById('mainContent');
+  main.innerHTML = '<p class="sectionLabel">Carregando…</p>';
+
+  let resumo;
+  try {
+    resumo = await api.get('/dashboard/chamados');
+  } catch (err) {
+    main.innerHTML = `<p>Erro ao carregar dashboard de chamados: ${err.message}</p>`;
+    return;
+  }
+
+  const porSituacaoMap = Object.fromEntries(resumo.porSituacao.map((s) => [s.situacao, s._count]));
+
   main.innerHTML = `
-    <p class="sectionLabel">Chamados</p>
+    <p class="sectionLabel">Dashboard de chamados</p>
+    <div class="kpiRow">
+      <div class="kpi" style="--accent:var(--blue)"><div class="val num">${resumo.total}</div><div class="lbl">Total</div></div>
+      <div class="kpi" style="--accent:var(--red)"><div class="val num">${porSituacaoMap.ABERTO || 0}</div><div class="lbl">Aberto</div></div>
+      <div class="kpi" style="--accent:var(--amber)"><div class="val num">${porSituacaoMap.ORCAMENTO || 0}</div><div class="lbl">Orçamento</div></div>
+      <div class="kpi" style="--accent:var(--red)"><div class="val num">${porSituacaoMap.SEM_RETORNO || 0}</div><div class="lbl">Sem retorno</div></div>
+      <div class="kpi" style="--accent:var(--purple)"><div class="val num">${porSituacaoMap.DEVENDO || 0}</div><div class="lbl">Devendo</div></div>
+      <div class="kpi" style="--accent:var(--blue)"><div class="val num">${porSituacaoMap.OUTROS || 0}</div><div class="lbl">Outros (em andamento)</div></div>
+      <div class="kpi" style="--accent:var(--green)"><div class="val num">${porSituacaoMap.RESOLVIDO || 0}</div><div class="lbl">Resolvido</div></div>
+    </div>
+    <div class="chartsRow">
+      <div class="panel"><h3>Evolução mensal</h3><div class="chartWrap"><canvas id="chartChamMes"></canvas></div></div>
+      <div class="panel"><h3>Por situação</h3><div class="chartWrap"><canvas id="chartChamSituacao"></canvas></div></div>
+    </div>
+    <div class="chartsRow">
+      <div class="panel"><h3>Por equipamento</h3><div class="chartWrap"><canvas id="chartChamEquip"></canvas></div></div>
+      <div class="panel"><h3>Por responsável</h3><div class="chartWrap"><canvas id="chartChamResp"></canvas></div></div>
+    </div>
+
+    <p class="sectionLabel">Lista de chamados</p>
     <div class="toolbar">
       <div class="filters">
         <input type="text" id="fChamBusca" placeholder="Buscar cliente, número, série…">
@@ -271,6 +305,50 @@ async function renderChamados() {
       <tr><th>Número</th><th>Data</th><th>Cliente</th><th>Equipamento</th><th>Assunto</th><th>Situação</th><th></th></tr>
     </thead><tbody></tbody></table></div>
   `;
+
+  if (chartChamMes) chartChamMes.destroy();
+  if (chartChamEquip) chartChamEquip.destroy();
+  if (chartChamResp) chartChamResp.destroy();
+  if (chartSituacao) chartSituacao.destroy();
+
+  chartChamMes = new Chart(document.getElementById('chartChamMes'), {
+    type: 'line',
+    data: {
+      labels: resumo.porMes.map((m) => m.mes),
+      datasets: [{ data: resumo.porMes.map((m) => m.total), borderColor: '#e8963a', backgroundColor: 'rgba(232,150,58,.2)', fill: true, tension: 0.3 }],
+    },
+    options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } },
+  });
+
+  chartSituacao = new Chart(document.getElementById('chartChamSituacao'), {
+    type: 'doughnut',
+    data: {
+      labels: resumo.porSituacao.map((s) => s.situacao),
+      datasets: [{
+        data: resumo.porSituacao.map((s) => s._count),
+        backgroundColor: ['#e2564f', '#e8963a', '#5b8fd6', '#a682e0', '#3fb88f', '#8b96a8'],
+      }],
+    },
+    options: { plugins: { legend: { position: 'bottom', labels: { color: '#8b96a8' } } } },
+  });
+
+  chartChamEquip = new Chart(document.getElementById('chartChamEquip'), {
+    type: 'bar',
+    data: {
+      labels: resumo.porEquipamento.map((e) => e.equipamentoCategoria),
+      datasets: [{ data: resumo.porEquipamento.map((e) => e._count), backgroundColor: '#5b8fd6' }],
+    },
+    options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } },
+  });
+
+  chartChamResp = new Chart(document.getElementById('chartChamResp'), {
+    type: 'bar',
+    data: {
+      labels: resumo.porResponsavel.map((r) => r.responsavel),
+      datasets: [{ data: resumo.porResponsavel.map((r) => r._count), backgroundColor: '#3fb88f' }],
+    },
+    options: { indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true } } },
+  });
 
   document.getElementById('btnNovoChamado').addEventListener('click', () => abrirFormChamado());
   document.getElementById('fChamBusca').addEventListener('input', debounce(carregarChamados, 350));
