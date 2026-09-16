@@ -315,7 +315,7 @@ async function renderDashboard() {
 
 const TV_SLIDES_MS = 15000;
 const TV_DADOS_MS = 60000;
-const TV_SLIDES = ['visaoGeral', 'chamadosAbertos', 'agenda', 'pintura'];
+const TV_SLIDES = ['visaoGeral', 'chamadosAbertos', 'agenda', 'pintura', 'rmeSemRetorno'];
 
 let tvSlideAtual = 0;
 let tvDados = null;
@@ -338,13 +338,14 @@ async function iniciarModoTvKiosk() {
 
 async function tvAtualizarDados() {
   try {
-    const [kpis, chamadosAbertos, agenda, pintura] = await Promise.all([
+    const [kpis, chamadosAbertos, agenda, pintura, rme] = await Promise.all([
       api.get('/dashboard/kpis'),
       api.get('/chamados?situacao=ABERTO&pageSize=200'),
       api.get('/agenda'),
       api.get('/pintura'),
+      api.get('/rme?status=SEM_RETORNO&pageSize=200'),
     ]);
-    tvDados = { kpis, abertos: chamadosAbertos.itens, agenda, pintura, atualizadoEm: new Date() };
+    tvDados = { kpis, abertos: chamadosAbertos.itens, agenda, pintura, rmeSemRetorno: rme.itens, atualizadoEm: new Date() };
   } catch {
     // mantém os dados anteriores na tela se a atualização falhar (ex.: instabilidade de rede)
   }
@@ -384,6 +385,7 @@ function tvRenderizarSlide() {
     chamadosAbertos: tvSlideChamadosAbertos,
     agenda: tvSlideAgenda,
     pintura: tvSlidePintura,
+    rmeSemRetorno: tvSlideRmeSemRetorno,
   }[slide]();
 
   main.innerHTML = `<div class="tvKiosk">${conteudo}${tvRodape()}</div>`;
@@ -510,6 +512,26 @@ function tvSlidePintura() {
           <tbody>${linhas}</tbody>
         </table>
       </div>
+    </div>
+  `;
+}
+
+function tvSlideRmeSemRetorno() {
+  const itens = tvDados.rmeSemRetorno.slice(0, 14);
+  const linhas = itens.map((r) => `
+    <tr><td class="num">${r.nf}</td><td>${r.cliente}</td><td>${r.tecnico || '—'}</td><td>${fmtData(r.rmeData)}</td></tr>
+  `).join('') || '<tr><td colspan="4">Nenhum RME sem retorno.</td></tr>';
+  const restantes = tvDados.rmeSemRetorno.length - itens.length;
+
+  return `
+    ${tvCabecalho(`RME Sem Retorno (${tvDados.rmeSemRetorno.length})`)}
+    <div class="tvKioskBody tvTable">
+      <div class="listPanel" style="flex:1;overflow:hidden;">
+        <table><thead><tr><th>NF</th><th>Cliente</th><th>Técnico</th><th>Envio</th></tr></thead>
+          <tbody>${linhas}</tbody>
+        </table>
+      </div>
+      ${restantes > 0 ? `<p class="tvSectionLabel" style="margin-top:12px;">+ ${restantes} outros sem retorno</p>` : ''}
     </div>
   `;
 }
