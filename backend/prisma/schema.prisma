@@ -174,3 +174,14 @@ model Pintura {
   criadoEm     DateTime      @default(now())
   atualizadoEm DateTime      @updatedAt
 }
+
+model Producao {
+  id           String   @id @default(uuid())
+  equipamento  String
+  codigo       String?
+  numeroSerie  String?
+  quemProduziu String
+  data         DateTime @default(now())
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+}

@@ -174,6 +174,7 @@ function irParaView(view) {
     tarefas: renderTarefas,
     agenda: renderAgenda,
     pintura: renderPintura,
+    producao: renderProducao,
     usuarios: renderUsuarios,
   };
   (renderers[view] || renderDashboard)();
@@ -185,12 +186,13 @@ async function renderDashboard() {
   const main = document.getElementById('mainContent');
   main.innerHTML = '<p class="sectionLabel">Carregando…</p>';
 
-  let kpis, agenda, chamadosAbertos;
+  let kpis, agenda, chamadosAbertos, pintura;
   try {
-    [kpis, agenda, chamadosAbertos] = await Promise.all([
+    [kpis, agenda, chamadosAbertos, pintura] = await Promise.all([
       api.get('/dashboard/kpis'),
       api.get('/agenda'),
       api.get('/chamados?situacao=ABERTO&pageSize=200'),
+      api.get('/pintura'),
     ]);
   } catch (err) {
     main.innerHTML = `<p>Erro ao carregar dashboard: ${err.message}</p>`;
@@ -201,9 +203,13 @@ async function renderDashboard() {
   const visitasShowroom = agenda.filter((v) => v.tipo === 'SHOWROOM');
   const visitasCampo = agenda.filter((v) => v.tipo === 'CAMPO');
   const abertos = chamadosAbertos.itens;
+  const aguardandoPintura = pintura.filter((p) => p.status === 'AGUARDANDO');
 
   const linhaVisita = (v) => `
     <tr><td>${fmtData(v.data)}</td><td>${v.hora || '—'}</td><td>${v.representante || '—'}</td><td>${v.responsavel || '—'}</td><td>${v.linha || '—'}</td></tr>
+  `;
+  const linhaPintura = (p) => `
+    <tr><td>${p.equipamento}</td><td>${p.serie || '—'}</td><td>${p.cliente || '—'}</td></tr>
   `;
   const linhaChamado = (c) => `
     <tr><td class="num">${c.numero}</td><td>${fmtData(c.data)}</td><td>${c.cliente}</td><td>${c.equipamentoCategoria}</td><td>${(c.assunto || '').slice(0, 40)}</td><td class="num">${diasEmAberto(c.data)}</td></tr>
@@ -228,7 +234,7 @@ async function renderDashboard() {
       </table>
     </div>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;">
       <div>
         <p class="sectionLabel">Visitas Showroom (${visitasShowroom.length})</p>
         <div class="listPanel" style="max-height:280px;overflow-y:auto;">
@@ -242,6 +248,14 @@ async function renderDashboard() {
         <div class="listPanel" style="max-height:280px;overflow-y:auto;">
           <table><thead><tr><th>Data</th><th>Hora</th><th>Repres.</th><th>Respons.</th><th>Linha</th></tr></thead>
             <tbody>${visitasCampo.map(linhaVisita).join('') || '<tr><td colspan="5">Nenhuma visita agendada.</td></tr>'}</tbody>
+          </table>
+        </div>
+      </div>
+      <div>
+        <p class="sectionLabel">Aguardando pintura (${aguardandoPintura.length})</p>
+        <div class="listPanel" style="max-height:280px;overflow-y:auto;">
+          <table><thead><tr><th>Equipamento</th><th>Série</th><th>Cliente</th></tr></thead>
+            <tbody>${aguardandoPintura.map(linhaPintura).join('') || '<tr><td colspan="3">Fila de pintura vazia.</td></tr>'}</tbody>
           </table>
         </div>
       </div>
@@ -938,6 +952,89 @@ async function renderPintura() {
       await api.put(`/pintura/${sel.dataset.status}`, { status: sel.value });
       toast('Status atualizado.');
     });
+  });
+}
+
+// ---------- PRODUÇÃO ----------
+
+async function renderProducao() {
+  const main = document.getElementById('mainContent');
+  main.innerHTML = `
+    <p class="sectionLabel">Produção</p>
+    <div class="toolbar">
+      <div class="filters"><input type="text" id="fProdBusca" placeholder="Buscar equipamento, código, série, produtor…"></div>
+      <button class="primaryBtn" id="btnNovaProducao">+ Novo registro</button>
+    </div>
+    <div id="producaoFormWrap"></div>
+    <div class="listPanel"><table id="tblProducao"><thead>
+      <tr><th>Data</th><th>Equipamento</th><th>Código</th><th>Número de série</th><th>Quem produziu</th><th></th></tr>
+    </thead><tbody></tbody></table></div>
+  `;
+
+  document.getElementById('btnNovaProducao').addEventListener('click', () => abrirFormProducao());
+  document.getElementById('fProdBusca').addEventListener('input', debounce(carregarProducao, 350));
+  await carregarProducao();
+}
+
+async function carregarProducao() {
+  const q = document.getElementById('fProdBusca').value.trim();
+  const params = new URLSearchParams();
+  if (q) params.set('q', q);
+
+  const { itens } = await api.get(`/producao?${params.toString()}`);
+  const tbody = document.querySelector('#tblProducao tbody');
+  tbody.innerHTML = itens.map((p) => `
+    <tr>
+      <td>${fmtData(p.data)}</td><td>${p.equipamento}</td><td>${p.codigo || '—'}</td>
+      <td>${p.numeroSerie || '—'}</td><td>${p.quemProduziu}</td>
+      <td class="rowActions"><button class="rowBtn" data-editar="${p.id}">Editar</button></td>
+    </tr>
+  `).join('') || '<tr><td colspan="6">Nenhum registro de produção.</td></tr>';
+
+  tbody.querySelectorAll('[data-editar]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const p = itens.find((x) => x.id === btn.dataset.editar);
+      abrirFormProducao(p);
+    });
+  });
+}
+
+function abrirFormProducao(producao = null) {
+  const wrap = document.getElementById('producaoFormWrap');
+  const p = producao || {};
+  wrap.innerHTML = `
+    <div class="formPanel">
+      <div class="formGrid">
+        <div><label>Equipamento</label><input type="text" id="pdEquipamento" value="${p.equipamento || ''}"></div>
+        <div><label>Código</label><input type="text" id="pdCodigo" value="${p.codigo || ''}"></div>
+        <div><label>Número de série</label><input type="text" id="pdSerie" value="${p.numeroSerie || ''}"></div>
+        <div><label>Quem produziu</label><input type="text" id="pdQuemProduziu" value="${p.quemProduziu || ''}"></div>
+        <div><label>Data</label><input type="date" id="pdData" value="${p.data ? p.data.slice(0, 10) : new Date().toISOString().slice(0, 10)}"></div>
+      </div>
+      <div class="formActions">
+        <button class="ghostBtn" id="btnCancelarProducao">Cancelar</button>
+        <button class="primaryBtn" id="btnSalvarProducao">${producao ? 'Salvar alterações' : 'Criar registro'}</button>
+      </div>
+    </div>
+  `;
+  document.getElementById('btnCancelarProducao').addEventListener('click', () => { wrap.innerHTML = ''; });
+  document.getElementById('btnSalvarProducao').addEventListener('click', async () => {
+    const payload = {
+      equipamento: document.getElementById('pdEquipamento').value,
+      codigo: document.getElementById('pdCodigo').value,
+      numeroSerie: document.getElementById('pdSerie').value,
+      quemProduziu: document.getElementById('pdQuemProduziu').value,
+      data: document.getElementById('pdData').value || null,
+    };
+    try {
+      if (producao) await api.put(`/producao/${producao.id}`, payload);
+      else await api.post('/producao', payload);
+      toast('Registro de produção salvo.');
+      wrap.innerHTML = '';
+      await carregarProducao();
+    } catch (err) {
+      toast(err.message, true);
+    }
   });
 }
 

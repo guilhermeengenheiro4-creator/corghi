@@ -12,6 +12,7 @@ const pinturaRoutes = require('./routes/pintura.routes');
 const usuariosRoutes = require('./routes/usuarios.routes');
 const seriesRoutes = require('./routes/series.routes');
 const dashboardRoutes = require('./routes/dashboard.routes');
+const producaoRoutes = require('./routes/producao.routes');
 
 const app = express();
 
@@ -32,6 +33,7 @@ app.use('/api/pintura', pinturaRoutes);
 app.use('/api/usuarios', usuariosRoutes);
 app.use('/api/series', seriesRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/producao', producaoRoutes);
 
 // Serve o frontend estático a partir do mesmo servidor/domínio da API — evita CORS e
 // cookies cross-site em produção, e dá uma única URL para o sistema inteiro.
