@@ -10,6 +10,7 @@ datasource db {
 enum Papel {
   ADMIN
   TECNICO
+  TV
 }
 
 enum EquipamentoCategoria {

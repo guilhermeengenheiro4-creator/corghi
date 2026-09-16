@@ -127,3 +127,34 @@ body.tv .chartWrap{height:280px;}
   .chartsRow{grid-template-columns:1fr;}
   .formGrid{grid-template-columns:repeat(2,1fr);}
 }
+
+/* MODO TV (login dedicado, quiosque tela cheia) */
+body.tv-kiosk header, body.tv-kiosk nav{display:none !important;}
+body.tv-kiosk, body.tv-kiosk #app{height:100vh;overflow:hidden;}
+body.tv-kiosk main{padding:0;max-width:none;height:100vh;overflow:hidden;}
+.tvKiosk{display:flex;flex-direction:column;height:100vh;padding:28px 40px;overflow:hidden;box-sizing:border-box;}
+.tvKioskHeader{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-shrink:0;}
+.tvKioskHeader h1{font-size:26px;margin:0;}
+.tvKioskHeader .relogio{font-family:'IBM Plex Mono',monospace;font-size:30px;color:var(--text);}
+.tvKioskHeader .relogio span{display:block;font-size:13px;color:var(--text-dim);font-weight:400;text-align:right;}
+.tvKioskBody{flex:1;min-height:0;display:flex;flex-direction:column;}
+.tvKpiRow{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-bottom:24px;flex-shrink:0;}
+.tvKpiRow .kpi{padding:22px 26px;}
+.tvKpiRow .kpi .val{font-size:52px;}
+.tvKpiRow .kpi .lbl{font-size:16px;margin-top:8px;}
+.tvChartsRow{flex:1;min-height:0;display:grid;grid-template-columns:1.3fr 1fr;gap:20px;}
+.tvChartsRow .panel{display:flex;flex-direction:column;min-height:0;}
+.tvChartsRow .panel h3{font-size:18px;}
+.tvChartsRow .chartWrap{flex:1;min-height:0;}
+.tvTable table{font-size:16px;}
+.tvTable th{font-size:13px;padding:10px;}
+.tvTable td{padding:10px;}
+.tvSectionLabel{font-size:16px;color:var(--text-faint);text-transform:uppercase;letter-spacing:1.5px;margin:0 0 14px;font-weight:600;flex-shrink:0;}
+.tvDots{display:flex;gap:8px;justify-content:center;margin-top:16px;flex-shrink:0;}
+.tvDots span{width:10px;height:10px;border-radius:50%;background:var(--line);}
+.tvDots span.active{background:var(--amber);}
+.tvSairBtn{position:fixed;bottom:10px;left:10px;opacity:.12;background:none;border:none;color:var(--text-faint);font-size:11px;cursor:pointer;padding:6px;}
+.tvSairBtn:hover{opacity:1;}
+.tvGrid2{flex:1;min-height:0;display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+.tvGrid2 > div{display:flex;flex-direction:column;min-height:0;}
+.tvGrid2 .listPanel{flex:1;min-height:0;overflow:hidden;}

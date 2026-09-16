@@ -6,6 +6,10 @@ let chartSituacao = null;
 let chartChamMes = null;
 let chartChamEquip = null;
 let chartChamResp = null;
+let chartTvEquip = null;
+let chartTvSituacao = null;
+let tvIntervaloSlide = null;
+let tvIntervaloDados = null;
 
 const EQUIPAMENTOS = ['ALINHADORA', 'BALANCEADORA', 'DESMONTADORA', 'RAMPA', 'ELEVADOR', 'RECICLADORA', 'RETIFICADORA', 'OUTROS'];
 const SITUACOES = ['ABERTO', 'ORCAMENTO', 'SEM_RETORNO', 'OUTROS', 'DEVENDO', 'RESOLVIDO'];
@@ -132,6 +136,12 @@ function mostrarLogin() {
 function mostrarApp() {
   document.getElementById('loginScreen').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
+
+  if (currentUser.papel === 'TV') {
+    iniciarModoTvKiosk();
+    return;
+  }
+
   document.getElementById('userNome').textContent = currentUser.nome;
   document.getElementById('navUsuarios').classList.toggle('hidden', currentUser.papel !== 'ADMIN');
   irParaView('dashboard');
@@ -299,6 +309,209 @@ async function renderDashboard() {
       plugins: { legend: { position: 'right', align: 'center', labels: { color: '#8b96a8', boxWidth: 12, padding: 14 } } },
     },
   });
+}
+
+// ---------- MODO TV (login dedicado, quiosque tela cheia, sem menu) ----------
+
+const TV_SLIDES_MS = 15000;
+const TV_DADOS_MS = 60000;
+const TV_SLIDES = ['visaoGeral', 'chamadosAbertos', 'agenda', 'pintura'];
+
+let tvSlideAtual = 0;
+let tvDados = null;
+
+async function iniciarModoTvKiosk() {
+  document.body.classList.add('tv-kiosk');
+  await tvAtualizarDados();
+  tvSlideAtual = 0;
+  tvRenderizarSlide();
+
+  clearInterval(tvIntervaloSlide);
+  tvIntervaloSlide = setInterval(() => {
+    tvSlideAtual = (tvSlideAtual + 1) % TV_SLIDES.length;
+    tvRenderizarSlide();
+  }, TV_SLIDES_MS);
+
+  clearInterval(tvIntervaloDados);
+  tvIntervaloDados = setInterval(tvAtualizarDados, TV_DADOS_MS);
+}
+
+async function tvAtualizarDados() {
+  try {
+    const [kpis, chamadosAbertos, agenda, pintura] = await Promise.all([
+      api.get('/dashboard/kpis'),
+      api.get('/chamados?situacao=ABERTO&pageSize=200'),
+      api.get('/agenda'),
+      api.get('/pintura'),
+    ]);
+    tvDados = { kpis, abertos: chamadosAbertos.itens, agenda, pintura, atualizadoEm: new Date() };
+  } catch {
+    // mantém os dados anteriores na tela se a atualização falhar (ex.: instabilidade de rede)
+  }
+}
+
+function tvCabecalho(titulo) {
+  const agora = new Date();
+  const hora = agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  const data = agora.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' });
+  return `
+    <div class="tvKioskHeader">
+      <h1>${titulo}</h1>
+      <div class="relogio">${hora}<span>${data}</span></div>
+    </div>
+  `;
+}
+
+function tvRodape() {
+  return `
+    <div class="tvDots">
+      ${TV_SLIDES.map((_, i) => `<span class="${i === tvSlideAtual ? 'active' : ''}"></span>`).join('')}
+    </div>
+    <button class="tvSairBtn" id="btnTvSair">sair</button>
+  `;
+}
+
+function tvRenderizarSlide() {
+  const main = document.getElementById('mainContent');
+  if (!tvDados) {
+    main.innerHTML = '<div class="tvKiosk"><p class="tvSectionLabel">Carregando…</p></div>';
+    return;
+  }
+
+  const slide = TV_SLIDES[tvSlideAtual];
+  const conteudo = {
+    visaoGeral: tvSlideVisaoGeral,
+    chamadosAbertos: tvSlideChamadosAbertos,
+    agenda: tvSlideAgenda,
+    pintura: tvSlidePintura,
+  }[slide]();
+
+  main.innerHTML = `<div class="tvKiosk">${conteudo}${tvRodape()}</div>`;
+
+  document.getElementById('btnTvSair').addEventListener('click', async () => {
+    clearInterval(tvIntervaloSlide);
+    clearInterval(tvIntervaloDados);
+    document.body.classList.remove('tv-kiosk');
+    await api.post('/auth/logout').catch(() => null);
+    currentUser = null;
+    mostrarLogin();
+  });
+
+  if (slide === 'visaoGeral') tvMontarGraficos();
+}
+
+function tvSlideVisaoGeral() {
+  const { kpis } = tvDados;
+  const porSituacaoMap = Object.fromEntries(kpis.porSituacao.map((s) => [s.situacao, s._count]));
+  return `
+    ${tvCabecalho('Visão Geral')}
+    <div class="tvKioskBody">
+      <div class="tvKpiRow">
+        <div class="kpi" style="--accent:var(--red)"><div class="val num">${kpis.abertosNoAno}</div><div class="lbl">Chamados abertos no ano</div></div>
+        <div class="kpi" style="--accent:var(--amber)"><div class="val num">${kpis.abertosNoMes}</div><div class="lbl">Chamados abertos no mês</div></div>
+        <div class="kpi" style="--accent:var(--blue)"><div class="val num">${kpis.abertos}</div><div class="lbl">Chamados em aberto</div></div>
+      </div>
+      <div class="tvChartsRow">
+        <div class="panel"><h3>Chamados por equipamento</h3><div class="chartWrap"><canvas id="tvChartEquip"></canvas></div></div>
+        <div class="panel"><h3>Chamados por situação</h3><div class="chartWrap"><canvas id="tvChartSituacao"></canvas></div></div>
+      </div>
+    </div>
+  `;
+}
+
+function tvMontarGraficos() {
+  const { kpis } = tvDados;
+  if (chartTvEquip) chartTvEquip.destroy();
+  if (chartTvSituacao) chartTvSituacao.destroy();
+
+  chartTvEquip = new Chart(document.getElementById('tvChartEquip'), {
+    type: 'bar',
+    data: {
+      labels: kpis.porEquipamento.map((e) => e.equipamentoCategoria),
+      datasets: [{ data: kpis.porEquipamento.map((e) => e._count), backgroundColor: '#5b8fd6' }],
+    },
+    options: { maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true }, x: { ticks: { font: { size: 13 } } } } },
+  });
+
+  chartTvSituacao = new Chart(document.getElementById('tvChartSituacao'), {
+    type: 'doughnut',
+    data: {
+      labels: kpis.porSituacao.map((s) => s.situacao),
+      datasets: [{
+        data: kpis.porSituacao.map((s) => s._count),
+        backgroundColor: ['#e2564f', '#e8963a', '#5b8fd6', '#a682e0', '#3fb88f', '#8b96a8'],
+        borderColor: '#1a1f27',
+        borderWidth: 2,
+      }],
+    },
+    options: {
+      maintainAspectRatio: false,
+      cutout: '60%',
+      plugins: { legend: { position: 'right', labels: { color: '#8b96a8', boxWidth: 14, padding: 12, font: { size: 14 } } } },
+    },
+  });
+}
+
+function tvSlideChamadosAbertos() {
+  const abertos = tvDados.abertos.slice(0, 12);
+  const linhas = abertos.map((c) => `
+    <tr><td class="num">${c.numero}</td><td>${fmtData(c.data)}</td><td>${c.cliente}</td><td>${c.equipamentoCategoria}</td><td>${(c.assunto || '').slice(0, 50)}</td><td class="num">${diasEmAberto(c.data)}</td></tr>
+  `).join('') || '<tr><td colspan="6">Nenhum chamado em aberto.</td></tr>';
+  const restantes = tvDados.abertos.length - abertos.length;
+
+  return `
+    ${tvCabecalho(`Chamados em Aberto (${tvDados.abertos.length})`)}
+    <div class="tvKioskBody tvTable">
+      <div class="listPanel" style="flex:1;overflow:hidden;">
+        <table><thead><tr><th>Número</th><th>Data</th><th>Cliente</th><th>Equipamento</th><th>Assunto</th><th>Dias</th></tr></thead>
+          <tbody>${linhas}</tbody>
+        </table>
+      </div>
+      ${restantes > 0 ? `<p class="tvSectionLabel" style="margin-top:12px;">+ ${restantes} outros chamados em aberto</p>` : ''}
+    </div>
+  `;
+}
+
+function tvSlideAgenda() {
+  const showroom = tvDados.agenda.filter((v) => v.tipo === 'SHOWROOM').slice(0, 8);
+  const campo = tvDados.agenda.filter((v) => v.tipo === 'CAMPO').slice(0, 8);
+  const linha = (v) => `<tr><td>${fmtData(v.data)}</td><td>${v.hora || '—'}</td><td>${v.representante || '—'}</td><td>${v.responsavel || '—'}</td></tr>`;
+
+  return `
+    ${tvCabecalho('Agenda de Visitas')}
+    <div class="tvGrid2 tvTable">
+      <div>
+        <p class="tvSectionLabel">Showroom</p>
+        <div class="listPanel"><table><thead><tr><th>Data</th><th>Hora</th><th>Repres.</th><th>Respons.</th></tr></thead>
+          <tbody>${showroom.map(linha).join('') || '<tr><td colspan="4">Nenhuma visita agendada.</td></tr>'}</tbody>
+        </table></div>
+      </div>
+      <div>
+        <p class="tvSectionLabel">Campo</p>
+        <div class="listPanel"><table><thead><tr><th>Data</th><th>Hora</th><th>Repres.</th><th>Respons.</th></tr></thead>
+          <tbody>${campo.map(linha).join('') || '<tr><td colspan="4">Nenhuma visita agendada.</td></tr>'}</tbody>
+        </table></div>
+      </div>
+    </div>
+  `;
+}
+
+function tvSlidePintura() {
+  const itens = tvDados.pintura.slice(0, 14);
+  const linhas = itens.map((p) => `
+    <tr><td>${p.equipamento}</td><td>${p.serie || '—'}</td><td>${p.cliente || '—'}</td><td>${badge(p.status)}</td></tr>
+  `).join('') || '<tr><td colspan="4">Fila de pintura vazia.</td></tr>';
+
+  return `
+    ${tvCabecalho(`Fila de Pintura (${tvDados.pintura.length})`)}
+    <div class="tvKioskBody tvTable">
+      <div class="listPanel" style="flex:1;overflow:hidden;">
+        <table><thead><tr><th>Equipamento</th><th>Série</th><th>Cliente</th><th>Status</th></tr></thead>
+          <tbody>${linhas}</tbody>
+        </table>
+      </div>
+    </div>
+  `;
 }
 
 // ---------- CHAMADOS ----------
@@ -1092,7 +1305,7 @@ async function renderUsuarios() {
         <div><label>Nome</label><input type="text" id="uNome"></div>
         <div><label>E-mail</label><input type="email" id="uEmail"></div>
         <div><label>Senha provisória</label><input type="text" id="uSenha"></div>
-        <div><label>Papel</label><select id="uPapel"><option value="TECNICO">Técnico</option><option value="ADMIN">Admin</option></select></div>
+        <div><label>Papel</label><select id="uPapel"><option value="TECNICO">Técnico</option><option value="ADMIN">Admin</option><option value="TV">TV (somente leitura, tela cheia)</option></select></div>
       </div>
       <div class="formActions"><button class="primaryBtn" id="btnCriarUsuario">Criar usuário</button></div>
     </div>
