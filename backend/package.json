@@ -1,4 +1,4 @@
-{
+﻿{
   "name": "corghi-chamados-backend",
   "version": "1.0.0",
   "private": true,
@@ -11,7 +11,8 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
     "seed": "node prisma/seed.js",
-    "migrar-legado": "node scripts/importar-legado.js"
+    "migrar-legado": "node scripts/importar-legado.js",
+    "atualizar-rme": "node scripts/atualizar-rme.js"
   },
   "dependencies": {
     "@prisma/client": "^5.20.0",
