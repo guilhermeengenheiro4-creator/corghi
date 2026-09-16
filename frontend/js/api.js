@@ -1,4 +1,10 @@
-const API_BASE = window.API_BASE_URL || 'http://localhost:3000/api';
+// Em produção o frontend é servido pelo mesmo domínio da API (caminho relativo funciona
+// direto). Em dev local com `npx serve` numa porta separada (5173), a API roda em :3000
+// no mesmo host — cobre local, rede local (IP) e produção sem precisar configurar nada.
+const API_BASE = window.API_BASE_URL
+  || (location.port && location.port !== '3000'
+    ? `${location.protocol}//${location.hostname}:3000/api`
+    : '/api');
 
 async function apiRequest(path, options = {}) {
   const res = await fetch(`${API_BASE}${path}`, {

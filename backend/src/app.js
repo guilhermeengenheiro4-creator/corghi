@@ -1,3 +1,4 @@
+const path = require('path');
 const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
@@ -14,7 +15,9 @@ const dashboardRoutes = require('./routes/dashboard.routes');
 
 const app = express();
 
-app.use(cors({ origin: process.env.FRONTEND_ORIGIN, credentials: true }));
+// Em produção o frontend é servido pelo mesmo domínio (sem CORS necessário). Em dev local
+// o frontend roda numa porta separada (5173) — FRONTEND_ORIGIN cobre esse caso.
+app.use(cors({ origin: process.env.FRONTEND_ORIGIN || true, credentials: true }));
 app.use(express.json());
 app.use(cookieParser());
 
@@ -29,6 +32,12 @@ app.use('/api/pintura', pinturaRoutes);
 app.use('/api/usuarios', usuariosRoutes);
 app.use('/api/series', seriesRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+
+// Serve o frontend estático a partir do mesmo servidor/domínio da API — evita CORS e
+// cookies cross-site em produção, e dá uma única URL para o sistema inteiro.
+const frontendDir = path.join(__dirname, '../../frontend');
+app.use(express.static(frontendDir));
+app.get(/^(?!\/api).*/, (req, res) => res.sendFile(path.join(frontendDir, 'index.html')));
 
 app.use((err, req, res, next) => {
   console.error(err);
