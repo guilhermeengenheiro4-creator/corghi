@@ -1,10 +1,21 @@
+const path = require('path');
+const fs = require('fs');
 const express = require('express');
 const { z } = require('zod');
 const prisma = require('../lib/prisma');
 const { requireAuth } = require('../middleware/auth');
+const { unzip, zip } = require('../lib/zipUtil');
 
 const router = express.Router();
 router.use(requireAuth);
+
+// Nomes exatamente iguais aos arquivos em backend/templates/rme/*.docx
+const EQUIPAMENTOS_RME = [
+  'BALANCEADORA', 'BALANCEADORA LINHA PESADA', 'BLACK TECH', 'DESMONTADORA',
+  'DESMONTADORA LINHA PESADA', 'ELEVADOR ELETRO HIDRAULICO', 'ELEVADOR PANTOGRAFICO',
+  'EXACT 70', 'EXACT LINEAR', 'PARTNER 70', 'RAMPA', 'RAMPA PANTOGRAFICO',
+  'RECICLADORA DE AR', 'RETIFICADORA',
+];
 
 const rmeSchema = z.object({
   nf: z.string().min(1),
@@ -18,6 +29,10 @@ const rmeSchema = z.object({
   montagemData: z.coerce.date().optional().nullable(),
   montador: z.string().optional().nullable(),
   valorPago: z.coerce.number().optional().nullable(),
+  equipamento: z.enum(EQUIPAMENTOS_RME).optional().nullable(),
+  modelo: z.string().optional().nullable(),
+  numeroSerie: z.string().optional().nullable(),
+  dataNota: z.coerce.date().optional().nullable(),
   cancelado: z.boolean().optional().default(false),
 });
 
@@ -71,6 +86,57 @@ router.put('/:id', async (req, res) => {
   const rme = await prisma.rme.update({ where: { id: req.params.id }, data: parsed.data }).catch(() => null);
   if (!rme) return res.status(404).json({ erro: 'RME não encontrado.' });
   res.json(comStatus(rme));
+});
+
+router.get('/equipamentos-formulario', (req, res) => {
+  res.json(EQUIPAMENTOS_RME);
+});
+
+function fmtDataBr(d) {
+  if (!d) return '';
+  const dt = new Date(d);
+  const dia = String(dt.getUTCDate()).padStart(2, '0');
+  const mes = String(dt.getUTCMonth() + 1).padStart(2, '0');
+  return `${dia}/${mes}/${dt.getUTCFullYear()}`;
+}
+
+function escaparXml(texto) {
+  return String(texto).replace(/[<>&'"]/g, (c) => ({
+    '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;',
+  }[c]));
+}
+
+router.get('/:id/formulario', async (req, res) => {
+  const rme = await prisma.rme.findUnique({ where: { id: req.params.id } });
+  if (!rme) return res.status(404).json({ erro: 'RME não encontrado.' });
+  if (!rme.equipamento) return res.status(400).json({ erro: 'Defina o equipamento do RME antes de gerar o formulário.' });
+
+  const caminhoTemplate = path.join(__dirname, '../../templates/rme', `${rme.equipamento}.docx`);
+  if (!fs.existsSync(caminhoTemplate)) {
+    return res.status(400).json({ erro: `Não há template de formulário para "${rme.equipamento}".` });
+  }
+
+  const arquivos = unzip(fs.readFileSync(caminhoTemplate));
+  let documentXml = arquivos['word/document.xml'].toString('utf8');
+
+  const valores = {
+    '{{CLIENTE}}': rme.cliente || '',
+    '{{MODELO}}': rme.modelo || '',
+    '{{SERIE}}': rme.numeroSerie || '',
+    '{{NF}}': rme.nf || '',
+    '{{DATA}}': fmtDataBr(rme.dataNota),
+  };
+  for (const [chave, valor] of Object.entries(valores)) {
+    documentXml = documentXml.split(chave).join(escaparXml(valor));
+  }
+  arquivos['word/document.xml'] = Buffer.from(documentXml, 'utf8');
+
+  const saida = zip(arquivos);
+  const nomeArquivo = `RME ${rme.equipamento} - ${rme.cliente}.docx`.replace(/[\\/:*?"<>|]/g, '');
+
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+  res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(nomeArquivo)}"`);
+  res.send(saida);
 });
 
 router.delete('/:id', async (req, res) => {

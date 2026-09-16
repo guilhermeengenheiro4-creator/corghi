@@ -119,6 +119,10 @@ model Rme {
   montagemData  DateTime?
   montador      String?
   valorPago     Decimal?  @db.Decimal(12, 2)
+  equipamento   String?
+  modelo        String?
+  numeroSerie   String?
+  dataNota      DateTime?
   cancelado     Boolean   @default(false)
   criadoEm      DateTime  @default(now())
   atualizadoEm  DateTime  @updatedAt

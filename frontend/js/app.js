@@ -10,6 +10,12 @@ let chartChamResp = null;
 const EQUIPAMENTOS = ['ALINHADORA', 'BALANCEADORA', 'DESMONTADORA', 'RAMPA', 'ELEVADOR', 'RECICLADORA', 'RETIFICADORA', 'OUTROS'];
 const SITUACOES = ['ABERTO', 'ORCAMENTO', 'SEM_RETORNO', 'OUTROS', 'DEVENDO', 'RESOLVIDO'];
 const ORCAMENTO_STATUS = ['A_MONTAR', 'ENVIADO', 'APROVADO', 'REPROVADO', 'CANCELADO'];
+const EQUIPAMENTOS_RME = [
+  'BALANCEADORA', 'BALANCEADORA LINHA PESADA', 'BLACK TECH', 'DESMONTADORA',
+  'DESMONTADORA LINHA PESADA', 'ELEVADOR ELETRO HIDRAULICO', 'ELEVADOR PANTOGRAFICO',
+  'EXACT 70', 'EXACT LINEAR', 'PARTNER 70', 'RAMPA', 'RAMPA PANTOGRAFICO',
+  'RECICLADORA DE AR', 'RETIFICADORA',
+];
 
 function badge(valor) {
   if (!valor) return '';
@@ -675,7 +681,7 @@ async function renderRme() {
     </div>
     <div id="rmeFormWrap"></div>
     <div class="listPanel" style="overflow-x:auto;"><table id="tblRme"><thead>
-      <tr><th>NF</th><th>Cliente</th><th>Técnico</th><th>Envio</th><th>Retorno</th><th>Montagem</th><th>Montador</th><th>Valor pago</th><th>Status</th><th></th></tr>
+      <tr><th>NF</th><th>Cliente</th><th>Equipamento</th><th>Técnico</th><th>Envio</th><th>Retorno</th><th>Montagem</th><th>Montador</th><th>Valor pago</th><th>Status</th><th></th></tr>
     </thead><tbody></tbody></table></div>
   `;
   document.getElementById('btnNovoRme').addEventListener('click', () => abrirFormRme());
@@ -691,18 +697,27 @@ async function carregarRme() {
   const tbody = document.querySelector('#tblRme tbody');
   tbody.innerHTML = itens.map((r) => `
     <tr>
-      <td class="num">${r.nf}</td><td>${r.cliente}</td><td>${r.tecnico || '—'}</td>
+      <td class="num">${r.nf}</td><td>${r.cliente}</td><td>${r.equipamento || '—'}</td><td>${r.tecnico || '—'}</td>
       <td>${fmtData(r.rmeData)}</td><td>${fmtData(r.retornoData)}</td><td>${fmtData(r.montagemData)}</td>
       <td>${r.montador || '—'}</td><td>${r.valorPago != null ? fmtMoeda(r.valorPago) : '—'}</td>
       <td>${badge(r.status)}</td>
-      <td class="rowActions"><button class="rowBtn" data-editar="${r.id}">Editar</button></td>
+      <td class="rowActions">
+        <button class="rowBtn" data-editar="${r.id}">Editar</button>
+        ${r.equipamento ? `<button class="rowBtn" data-formulario="${r.id}">Gerar formulário</button>` : ''}
+      </td>
     </tr>
-  `).join('') || '<tr><td colspan="10">Nenhum RME encontrado.</td></tr>';
+  `).join('') || '<tr><td colspan="11">Nenhum RME encontrado.</td></tr>';
 
   tbody.querySelectorAll('[data-editar]').forEach((btn) => {
     btn.addEventListener('click', () => {
       const r = itens.find((x) => x.id === btn.dataset.editar);
       abrirFormRme(r);
+    });
+  });
+
+  tbody.querySelectorAll('[data-formulario]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      window.open(`${API_BASE}/rme/${btn.dataset.formulario}/formulario`, '_blank');
     });
   });
 }
@@ -723,6 +738,15 @@ function abrirFormRme(rme = null) {
         <div><label>Data de montagem</label><input type="date" id="rMontagemData" value="${r.montagemData ? r.montagemData.slice(0, 10) : ''}"></div>
         <div><label>Montador (quem montou)</label><input type="text" id="rMontador" value="${r.montador || ''}"></div>
         <div><label>Valor pago</label><input type="number" step="0.01" id="rValorPago" value="${r.valorPago ?? ''}"></div>
+        <div><label>Equipamento (para gerar formulário)</label>
+          <select id="rEquipamento">
+            <option value="">— selecione —</option>
+            ${EQUIPAMENTOS_RME.map((e) => `<option value="${e}" ${r.equipamento === e ? 'selected' : ''}>${e}</option>`).join('')}
+          </select>
+        </div>
+        <div><label>Modelo</label><input type="text" id="rModelo" value="${r.modelo || ''}"></div>
+        <div><label>Número de série</label><input type="text" id="rNumeroSerie" value="${r.numeroSerie || ''}"></div>
+        <div><label>Data da nota fiscal</label><input type="date" id="rDataNota" value="${r.dataNota ? r.dataNota.slice(0, 10) : ''}"></div>
         <div><label>Cancelado</label><select id="rCancelado"><option value="false" ${!r.cancelado ? 'selected' : ''}>NÃO</option><option value="true" ${r.cancelado ? 'selected' : ''}>SIM</option></select></div>
         <div class="full"><label>Relatório</label><textarea id="rRelatorio">${r.relatorio || ''}</textarea></div>
       </div>
@@ -745,6 +769,10 @@ function abrirFormRme(rme = null) {
       montagemData: document.getElementById('rMontagemData').value || null,
       montador: document.getElementById('rMontador').value,
       valorPago: document.getElementById('rValorPago').value || null,
+      equipamento: document.getElementById('rEquipamento').value || null,
+      modelo: document.getElementById('rModelo').value,
+      numeroSerie: document.getElementById('rNumeroSerie').value,
+      dataNota: document.getElementById('rDataNota').value || null,
       cancelado: document.getElementById('rCancelado').value === 'true',
       relatorio: document.getElementById('rRelatorio').value,
     };
