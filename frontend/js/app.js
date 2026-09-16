@@ -727,17 +727,11 @@ function abrirFormRme(rme = null) {
   const r = rme || {};
   wrap.innerHTML = `
     <div class="formPanel">
+      <p class="sectionLabel" style="margin-top:0;">Dados para gerar o RME</p>
       <div class="formGrid">
         <div><label>NF</label><input type="text" id="rNf" value="${r.nf || ''}"></div>
         <div><label>Cliente</label><input type="text" id="rCliente" value="${r.cliente || ''}"></div>
         <div><label>Representante</label><input type="text" id="rRepresentante" value="${r.representante || ''}"></div>
-        <div><label>Técnico</label><input type="text" id="rTecnico" value="${r.tecnico || ''}"></div>
-        <div><label>Valor</label><input type="number" step="0.01" id="rValor" value="${r.valor || ''}"></div>
-        <div><label>Data de envio (RME)</label><input type="date" id="rRmeData" value="${r.rmeData ? r.rmeData.slice(0, 10) : ''}"></div>
-        <div><label>Data de retorno</label><input type="date" id="rRetornoData" value="${r.retornoData ? r.retornoData.slice(0, 10) : ''}"></div>
-        <div><label>Data de montagem</label><input type="date" id="rMontagemData" value="${r.montagemData ? r.montagemData.slice(0, 10) : ''}"></div>
-        <div><label>Montador (quem montou)</label><input type="text" id="rMontador" value="${r.montador || ''}"></div>
-        <div><label>Valor pago</label><input type="number" step="0.01" id="rValorPago" value="${r.valorPago ?? ''}"></div>
         <div><label>Equipamento (para gerar formulário)</label>
           <select id="rEquipamento">
             <option value="">— selecione —</option>
@@ -747,6 +741,17 @@ function abrirFormRme(rme = null) {
         <div><label>Modelo</label><input type="text" id="rModelo" value="${r.modelo || ''}"></div>
         <div><label>Número de série</label><input type="text" id="rNumeroSerie" value="${r.numeroSerie || ''}"></div>
         <div><label>Data da nota fiscal</label><input type="date" id="rDataNota" value="${r.dataNota ? r.dataNota.slice(0, 10) : ''}"></div>
+        <div><label>Data de envio (RME)</label><input type="date" id="rRmeData" value="${r.rmeData ? r.rmeData.slice(0, 10) : ''}"></div>
+      </div>
+
+      <p class="sectionLabel">Acompanhamento (depois do RME enviado)</p>
+      <div class="formGrid">
+        <div><label>Técnico</label><input type="text" id="rTecnico" value="${r.tecnico || ''}"></div>
+        <div><label>Data de retorno</label><input type="date" id="rRetornoData" value="${r.retornoData ? r.retornoData.slice(0, 10) : ''}"></div>
+        <div><label>Data de montagem</label><input type="date" id="rMontagemData" value="${r.montagemData ? r.montagemData.slice(0, 10) : ''}"></div>
+        <div><label>Montador (quem montou)</label><input type="text" id="rMontador" value="${r.montador || ''}"></div>
+        <div><label>Valor</label><input type="number" step="0.01" id="rValor" value="${r.valor || ''}"></div>
+        <div><label>Valor pago</label><input type="number" step="0.01" id="rValorPago" value="${r.valorPago ?? ''}"></div>
         <div><label>Cancelado</label><select id="rCancelado"><option value="false" ${!r.cancelado ? 'selected' : ''}>NÃO</option><option value="true" ${r.cancelado ? 'selected' : ''}>SIM</option></select></div>
         <div class="full"><label>Relatório</label><textarea id="rRelatorio">${r.relatorio || ''}</textarea></div>
       </div>
