@@ -117,6 +117,8 @@ model Rme {
   rmeData       DateTime?
   retornoData   DateTime?
   montagemData  DateTime?
+  montador      String?
+  valorPago     Decimal?  @db.Decimal(12, 2)
   cancelado     Boolean   @default(false)
   criadoEm      DateTime  @default(now())
   atualizadoEm  DateTime  @updatedAt

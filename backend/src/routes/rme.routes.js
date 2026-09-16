@@ -16,6 +16,8 @@ const rmeSchema = z.object({
   rmeData: z.coerce.date().optional().nullable(),
   retornoData: z.coerce.date().optional().nullable(),
   montagemData: z.coerce.date().optional().nullable(),
+  montador: z.string().optional().nullable(),
+  valorPago: z.coerce.number().optional().nullable(),
   cancelado: z.boolean().optional().default(false),
 });
 

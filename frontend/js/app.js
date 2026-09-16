@@ -660,8 +660,8 @@ async function renderRme() {
       <button class="primaryBtn" id="btnNovoRme">+ Novo RME</button>
     </div>
     <div id="rmeFormWrap"></div>
-    <div class="listPanel"><table id="tblRme"><thead>
-      <tr><th>NF</th><th>Cliente</th><th>Técnico</th><th>Envio</th><th>Retorno</th><th>Montagem</th><th>Status</th><th></th></tr>
+    <div class="listPanel" style="overflow-x:auto;"><table id="tblRme"><thead>
+      <tr><th>NF</th><th>Cliente</th><th>Técnico</th><th>Envio</th><th>Retorno</th><th>Montagem</th><th>Montador</th><th>Valor pago</th><th>Status</th><th></th></tr>
     </thead><tbody></tbody></table></div>
   `;
   document.getElementById('btnNovoRme').addEventListener('click', () => abrirFormRme());
@@ -679,10 +679,11 @@ async function carregarRme() {
     <tr>
       <td class="num">${r.nf}</td><td>${r.cliente}</td><td>${r.tecnico || '—'}</td>
       <td>${fmtData(r.rmeData)}</td><td>${fmtData(r.retornoData)}</td><td>${fmtData(r.montagemData)}</td>
+      <td>${r.montador || '—'}</td><td>${r.valorPago != null ? fmtMoeda(r.valorPago) : '—'}</td>
       <td>${badge(r.status)}</td>
       <td class="rowActions"><button class="rowBtn" data-editar="${r.id}">Editar</button></td>
     </tr>
-  `).join('') || '<tr><td colspan="8">Nenhum RME encontrado.</td></tr>';
+  `).join('') || '<tr><td colspan="10">Nenhum RME encontrado.</td></tr>';
 
   tbody.querySelectorAll('[data-editar]').forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -706,6 +707,8 @@ function abrirFormRme(rme = null) {
         <div><label>Data de envio (RME)</label><input type="date" id="rRmeData" value="${r.rmeData ? r.rmeData.slice(0, 10) : ''}"></div>
         <div><label>Data de retorno</label><input type="date" id="rRetornoData" value="${r.retornoData ? r.retornoData.slice(0, 10) : ''}"></div>
         <div><label>Data de montagem</label><input type="date" id="rMontagemData" value="${r.montagemData ? r.montagemData.slice(0, 10) : ''}"></div>
+        <div><label>Montador (quem montou)</label><input type="text" id="rMontador" value="${r.montador || ''}"></div>
+        <div><label>Valor pago</label><input type="number" step="0.01" id="rValorPago" value="${r.valorPago ?? ''}"></div>
         <div><label>Cancelado</label><select id="rCancelado"><option value="false" ${!r.cancelado ? 'selected' : ''}>NÃO</option><option value="true" ${r.cancelado ? 'selected' : ''}>SIM</option></select></div>
         <div class="full"><label>Relatório</label><textarea id="rRelatorio">${r.relatorio || ''}</textarea></div>
       </div>
@@ -726,6 +729,8 @@ function abrirFormRme(rme = null) {
       rmeData: document.getElementById('rRmeData').value || null,
       retornoData: document.getElementById('rRetornoData').value || null,
       montagemData: document.getElementById('rMontagemData').value || null,
+      montador: document.getElementById('rMontador').value,
+      valorPago: document.getElementById('rValorPago').value || null,
       cancelado: document.getElementById('rCancelado').value === 'true',
       relatorio: document.getElementById('rRelatorio').value,
     };
