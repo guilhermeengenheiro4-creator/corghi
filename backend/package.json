@@ -12,7 +12,8 @@
     "prisma:deploy": "prisma migrate deploy",
     "seed": "node prisma/seed.js",
     "migrar-legado": "node scripts/importar-legado.js",
-    "atualizar-rme": "node scripts/atualizar-rme.js"
+    "atualizar-rme": "node scripts/atualizar-rme.js",
+    "atualizar-chamados": "node scripts/atualizar-chamados.js"
   },
   "dependencies": {
     "@prisma/client": "^5.20.0",
