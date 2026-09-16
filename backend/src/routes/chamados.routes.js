@@ -1,8 +1,11 @@
+const path = require('path');
+const fs = require('fs');
 const express = require('express');
 const { z } = require('zod');
 const prisma = require('../lib/prisma');
 const { requireAuth } = require('../middleware/auth');
 const { gerarProximoNumero } = require('../utils/numeroChamado');
+const { unzip, zip } = require('../lib/zipUtil');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -107,6 +110,65 @@ router.get('/:id', async (req, res) => {
   const chamado = await prisma.chamado.findUnique({ where: { id: req.params.id } });
   if (!chamado) return res.status(404).json({ erro: 'Chamado não encontrado.' });
   res.json(chamado);
+});
+
+function fmtDataBr(d) {
+  if (!d) return '';
+  const dt = new Date(d);
+  const dia = String(dt.getUTCDate()).padStart(2, '0');
+  const mes = String(dt.getUTCMonth() + 1).padStart(2, '0');
+  return `${dia}/${mes}/${dt.getUTCFullYear()}`;
+}
+
+function escaparXml(texto) {
+  return String(texto).replace(/[<>&'"]/g, (c) => ({
+    '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;',
+  }[c]));
+}
+
+router.get('/:id/relatorio', async (req, res) => {
+  const chamado = await prisma.chamado.findUnique({ where: { id: req.params.id } });
+  if (!chamado) return res.status(404).json({ erro: 'Chamado não encontrado.' });
+
+  const caminhoTemplate = path.join(__dirname, '../../templates/relatorio/RELATORIO_SERVICO.docx');
+  const arquivos = unzip(fs.readFileSync(caminhoTemplate));
+  let documentXml = arquivos['word/document.xml'].toString('utf8');
+
+  const [ano, seq] = chamado.numero.split('/');
+  const valores = {
+    '{{NUMERO_SEQ}}': seq || '',
+    '{{ANO}}': ano || '',
+    '{{DATA_RELATORIO}}': fmtDataBr(new Date()),
+    '{{ABERTURA}}': fmtDataBr(chamado.data),
+    '{{CLIENTE}}': chamado.cliente || '',
+    '{{NF}}': chamado.nf || '',
+    '{{DATA_NF}}': '',
+    '{{CONTATO}}': chamado.contato || '',
+    '{{CIDADE}}': chamado.cidade || '',
+    '{{REPRESENTANTE}}': chamado.representante || '',
+    '{{GARANTIA_SIM}}': chamado.garantia ? 'X' : '',
+    '{{GARANTIA_NAO}}': chamado.garantia ? '' : 'X',
+    '{{ITALIA_SIM}}': chamado.italiaAjuda ? 'X' : '',
+    '{{ITALIA_NAO}}': chamado.italiaAjuda ? '' : 'X',
+    '{{EQUIPAMENTO}}': chamado.equipamentoCategoria || '',
+    '{{MODELO}}': chamado.modelo || '',
+    '{{SERIE}}': chamado.serie || '',
+    '{{RECLAMACAO}}': chamado.assunto || '',
+    '{{ACOES}}': chamado.acoesRealizadas || '',
+    '{{CONCLUSAO}}': chamado.conclusao || '',
+    '{{TECNICO}}': chamado.responsavel || '',
+  };
+  for (const [chave, valor] of Object.entries(valores)) {
+    documentXml = documentXml.split(chave).join(escaparXml(valor));
+  }
+  arquivos['word/document.xml'] = Buffer.from(documentXml, 'utf8');
+
+  const saida = zip(arquivos);
+  const nomeArquivo = `Relatorio ${chamado.numero} - ${chamado.cliente}.docx`.replace(/[\\/:*?"<>|]/g, '');
+
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+  res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(nomeArquivo)}"`);
+  res.send(saida);
 });
 
 router.post('/', async (req, res) => {

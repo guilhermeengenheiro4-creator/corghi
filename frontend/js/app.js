@@ -435,9 +435,18 @@ async function carregarChamados() {
       <td>${c.equipamentoCategoria}</td>
       <td>${(c.assunto || '').slice(0, 40)}</td>
       <td>${badge(c.situacao)}${c.orcamentoStatus ? ' ' + badge(c.orcamentoStatus) : ''}</td>
-      <td class="rowActions"><button class="rowBtn" data-editar="${c.id}">Editar</button></td>
+      <td class="rowActions">
+        <button class="rowBtn" data-editar="${c.id}">Editar</button>
+        <button class="rowBtn" data-relatorio="${c.id}">Gerar relatório</button>
+      </td>
     </tr>
   `).join('') || '<tr><td colspan="7">Nenhum chamado encontrado.</td></tr>';
+
+  tbody.querySelectorAll('[data-relatorio]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      window.open(`${API_BASE}/chamados/${btn.dataset.relatorio}/relatorio`, '_blank');
+    });
+  });
 
   tbody.querySelectorAll('[data-editar]').forEach((btn) => {
     btn.addEventListener('click', async () => {
