@@ -99,7 +99,7 @@ router.get('/', async (req, res) => {
   const skip = (Math.max(parseInt(page, 10) || 1, 1) - 1) * take;
 
   const [itens, total] = await Promise.all([
-    prisma.chamado.findMany({ where, orderBy: [{ data: 'desc' }, { numero: 'desc' }], take, skip }),
+    prisma.chamado.findMany({ where, orderBy: [{ numero: 'desc' }], take, skip }),
     prisma.chamado.count({ where }),
   ]);
 
