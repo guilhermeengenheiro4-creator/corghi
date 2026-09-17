@@ -190,3 +190,29 @@ model Producao {
   criadoEm     DateTime @default(now())
   atualizadoEm DateTime @updatedAt
 }
+
+model VisitaTecnica {
+  id                   String    @id @default(uuid())
+  representante        String?
+  cliente              String
+  nomeFantasia         String?
+  nf                   String?
+  data                 DateTime?
+  contato              String?
+  telefone             String?
+  celular              String?
+  email                String?
+  horaInicio           String?
+  dataInicio           DateTime?
+  equipamentoCategoria EquipamentoCategoria
+  modelo               String?
+  numeroSerie          String?
+  treinamentos         Json?
+  horaTermino          String?
+  dataTermino          DateTime?
+  parecerCliente       String?
+  tecnicoResponsavel   String?
+  dataAssinatura       DateTime?
+  criadoEm             DateTime  @default(now())
+  atualizadoEm         DateTime  @updatedAt
+}

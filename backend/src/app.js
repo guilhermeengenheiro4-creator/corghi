@@ -13,6 +13,7 @@ const usuariosRoutes = require('./routes/usuarios.routes');
 const seriesRoutes = require('./routes/series.routes');
 const dashboardRoutes = require('./routes/dashboard.routes');
 const producaoRoutes = require('./routes/producao.routes');
+const visitasTecnicasRoutes = require('./routes/visitasTecnicas.routes');
 
 const app = express();
 
@@ -34,6 +35,7 @@ app.use('/api/usuarios', usuariosRoutes);
 app.use('/api/series', seriesRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/producao', producaoRoutes);
+app.use('/api/visitas-tecnicas', visitasTecnicasRoutes);
 
 // Serve o frontend estático a partir do mesmo servidor/domínio da API — evita CORS e
 // cookies cross-site em produção, e dá uma única URL para o sistema inteiro.

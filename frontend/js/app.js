@@ -191,6 +191,7 @@ function irParaView(view) {
     agenda: renderAgenda,
     pintura: renderPintura,
     producao: renderProducao,
+    visitasTecnicas: renderVisitasTecnicas,
     usuarios: renderUsuarios,
   };
   (renderers[view] || renderDashboard)();
@@ -1331,6 +1332,147 @@ function abrirFormProducao(producao = null) {
       toast('Registro de produção salvo.');
       wrap.innerHTML = '';
       await carregarProducao();
+    } catch (err) {
+      toast(err.message, true);
+    }
+  });
+}
+
+// ---------- VISITAS TÉCNICAS (RMT) ----------
+
+async function renderVisitasTecnicas() {
+  const main = document.getElementById('mainContent');
+  main.innerHTML = `
+    <p class="sectionLabel">Visitas Técnicas — Relatório de Montagem e Treinamento</p>
+    <div class="toolbar">
+      <div class="filters"><input type="text" id="fVisitaBusca" placeholder="Buscar cliente, NF, série…"></div>
+      <button class="primaryBtn" id="btnNovaVisita">+ Nova visita</button>
+    </div>
+    <div id="visitaFormWrap"></div>
+    <div class="listPanel"><table id="tblVisitas"><thead>
+      <tr><th>Data</th><th>Cliente</th><th>Equipamento</th><th>Técnico</th><th></th></tr>
+    </thead><tbody></tbody></table></div>
+  `;
+
+  document.getElementById('btnNovaVisita').addEventListener('click', () => abrirFormVisitaTecnica());
+  document.getElementById('fVisitaBusca').addEventListener('input', debounce(carregarVisitasTecnicas, 350));
+  await carregarVisitasTecnicas();
+}
+
+async function carregarVisitasTecnicas() {
+  const q = document.getElementById('fVisitaBusca').value.trim();
+  const params = new URLSearchParams();
+  if (q) params.set('q', q);
+
+  const { itens } = await api.get(`/visitas-tecnicas?${params.toString()}`);
+  const tbody = document.querySelector('#tblVisitas tbody');
+  tbody.innerHTML = itens.map((v) => `
+    <tr>
+      <td>${fmtData(v.data)}</td><td>${v.cliente}</td><td>${v.equipamentoCategoria}</td>
+      <td>${v.tecnicoResponsavel || '—'}</td>
+      <td class="rowActions">
+        <button class="rowBtn" data-editar="${v.id}">Editar</button>
+        <button class="rowBtn" data-relatorio="${v.id}">Gerar RMT</button>
+      </td>
+    </tr>
+  `).join('') || '<tr><td colspan="5">Nenhuma visita técnica registrada.</td></tr>';
+
+  tbody.querySelectorAll('[data-editar]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const visita = await api.get(`/visitas-tecnicas/${btn.dataset.editar}`);
+      abrirFormVisitaTecnica(visita);
+    });
+  });
+
+  tbody.querySelectorAll('[data-relatorio]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      window.open(`${API_BASE}/visitas-tecnicas/${btn.dataset.relatorio}/relatorio`, '_blank');
+    });
+  });
+}
+
+function abrirFormVisitaTecnica(visita = null) {
+  const wrap = document.getElementById('visitaFormWrap');
+  const v = visita || {};
+  const treinamentos = Array.isArray(v.treinamentos) && v.treinamentos.length ? v.treinamentos : [{}, {}, {}, {}];
+  while (treinamentos.length < 4) treinamentos.push({});
+
+  wrap.innerHTML = `
+    <div class="formPanel">
+      <p class="sectionLabel">Dados para gerar o RMT</p>
+      <div class="formGrid">
+        <div><label>Representante</label><input type="text" id="vtRepresentante" value="${v.representante || ''}"></div>
+        <div><label>Cliente</label><input type="text" id="vtCliente" value="${v.cliente || ''}"></div>
+        <div><label>Nome Fantasia</label><input type="text" id="vtNomeFantasia" value="${v.nomeFantasia || ''}"></div>
+        <div><label>N. Fiscal</label><input type="text" id="vtNf" value="${v.nf || ''}"></div>
+        <div><label>Data da nota</label><input type="date" id="vtData" value="${v.data ? v.data.slice(0, 10) : ''}"></div>
+        <div><label>Contato</label><input type="text" id="vtContato" value="${v.contato || ''}"></div>
+        <div><label>Telefone</label><input type="text" id="vtTel" value="${v.telefone || ''}"></div>
+        <div><label>Celular</label><input type="text" id="vtCel" value="${v.celular || ''}"></div>
+        <div><label>E-mail</label><input type="text" id="vtEmail" value="${v.email || ''}"></div>
+        <div><label>Equipamento</label><select id="vtEquipamento">${EQUIPAMENTOS.map((eq) => `<option value="${eq}" ${v.equipamentoCategoria === eq ? 'selected' : ''}>${eq}</option>`).join('')}</select></div>
+        <div><label>Modelo</label><input type="text" id="vtModelo" value="${v.modelo || ''}"></div>
+        <div><label>Número de série</label><input type="text" id="vtSerie" value="${v.numeroSerie || ''}"></div>
+        <div><label>Hora início</label><input type="text" id="vtHoraInicio" placeholder="hh:mm" value="${v.horaInicio || ''}"></div>
+        <div><label>Data início</label><input type="date" id="vtDataInicio" value="${v.dataInicio ? v.dataInicio.slice(0, 10) : ''}"></div>
+      </div>
+
+      <p class="sectionLabel">Treinamento (nome e RG — até 4 pessoas)</p>
+      <div class="formGrid">
+        ${treinamentos.slice(0, 4).map((t, i) => `
+          <div><label>Nome ${i + 1}</label><input type="text" class="vtTreinoNome" value="${t.nome || ''}"></div>
+          <div><label>RG ${i + 1}</label><input type="text" class="vtTreinoRg" value="${t.rg || ''}"></div>
+        `).join('')}
+        <div><label>Hora término</label><input type="text" id="vtHoraTermino" placeholder="hh:mm" value="${v.horaTermino || ''}"></div>
+        <div><label>Data término</label><input type="date" id="vtDataTermino" value="${v.dataTermino ? v.dataTermino.slice(0, 10) : ''}"></div>
+      </div>
+
+      <p class="sectionLabel">Encerramento</p>
+      <div class="formGrid">
+        <div class="full"><label>Parecer do cliente</label><textarea id="vtParecer">${v.parecerCliente || ''}</textarea></div>
+        <div><label>Técnico responsável</label><input type="text" id="vtTecnico" value="${v.tecnicoResponsavel || currentUser.nome}"></div>
+        <div><label>Data assinatura</label><input type="date" id="vtDataAssinatura" value="${v.dataAssinatura ? v.dataAssinatura.slice(0, 10) : new Date().toISOString().slice(0, 10)}"></div>
+      </div>
+
+      <div class="formActions">
+        <button class="ghostBtn" id="btnCancelarVisita">Cancelar</button>
+        <button class="primaryBtn" id="btnSalvarVisita">${visita ? 'Salvar alterações' : 'Criar visita'}</button>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('btnCancelarVisita').addEventListener('click', () => { wrap.innerHTML = ''; });
+  document.getElementById('btnSalvarVisita').addEventListener('click', async () => {
+    const nomes = Array.from(document.querySelectorAll('.vtTreinoNome')).map((el) => el.value);
+    const rgs = Array.from(document.querySelectorAll('.vtTreinoRg')).map((el) => el.value);
+    const payload = {
+      representante: document.getElementById('vtRepresentante').value,
+      cliente: document.getElementById('vtCliente').value,
+      nomeFantasia: document.getElementById('vtNomeFantasia').value,
+      nf: document.getElementById('vtNf').value,
+      data: document.getElementById('vtData').value || null,
+      contato: document.getElementById('vtContato').value,
+      telefone: document.getElementById('vtTel').value,
+      celular: document.getElementById('vtCel').value,
+      email: document.getElementById('vtEmail').value,
+      equipamentoCategoria: document.getElementById('vtEquipamento').value,
+      modelo: document.getElementById('vtModelo').value,
+      numeroSerie: document.getElementById('vtSerie').value,
+      horaInicio: document.getElementById('vtHoraInicio').value,
+      dataInicio: document.getElementById('vtDataInicio').value || null,
+      treinamentos: nomes.map((nome, i) => ({ nome, rg: rgs[i] })),
+      horaTermino: document.getElementById('vtHoraTermino').value,
+      dataTermino: document.getElementById('vtDataTermino').value || null,
+      parecerCliente: document.getElementById('vtParecer').value,
+      tecnicoResponsavel: document.getElementById('vtTecnico').value,
+      dataAssinatura: document.getElementById('vtDataAssinatura').value || null,
+    };
+    try {
+      if (visita) await api.put(`/visitas-tecnicas/${visita.id}`, payload);
+      else await api.post('/visitas-tecnicas', payload);
+      toast('Visita técnica salva.');
+      wrap.innerHTML = '';
+      await carregarVisitasTecnicas();
     } catch (err) {
       toast(err.message, true);
     }
