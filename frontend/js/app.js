@@ -588,7 +588,15 @@ async function renderChamados() {
     <div id="chamadoFormWrap"></div>
     <div class="listPanel"><table id="tblChamados"><thead>
       <tr><th>Número</th><th>Data</th><th>Cliente</th><th>Equipamento</th><th>Assunto</th><th>Situação</th><th></th></tr>
-    </thead><tbody></tbody></table></div>
+    </thead><tbody></tbody></table>
+    <div class="toolbar" style="margin:14px 0 0;">
+      <span class="sectionLabel" id="chamPaginaInfo" style="margin:0;"></span>
+      <div class="filters">
+        <button class="ghostBtn" id="btnChamAnterior">‹ Anterior</button>
+        <button class="ghostBtn" id="btnChamProxima">Próxima ›</button>
+      </div>
+    </div>
+    </div>
   `;
 
   if (chartChamMes) chartChamMes.destroy();
@@ -642,11 +650,17 @@ async function renderChamados() {
   });
 
   document.getElementById('btnNovoChamado').addEventListener('click', () => abrirFormChamado());
-  document.getElementById('fChamBusca').addEventListener('input', debounce(carregarChamados, 350));
-  document.getElementById('fChamSituacao').addEventListener('change', carregarChamados);
+  document.getElementById('fChamBusca').addEventListener('input', debounce(() => { chamadosPagina = 1; carregarChamados(); }, 350));
+  document.getElementById('fChamSituacao').addEventListener('change', () => { chamadosPagina = 1; carregarChamados(); });
+  document.getElementById('btnChamAnterior').addEventListener('click', () => { if (chamadosPagina > 1) { chamadosPagina -= 1; carregarChamados(); } });
+  document.getElementById('btnChamProxima').addEventListener('click', () => { chamadosPagina += 1; carregarChamados(); });
 
+  chamadosPagina = 1;
   await carregarChamados();
 }
+
+let chamadosPagina = 1;
+const CHAMADOS_PAGE_SIZE = 50;
 
 function debounce(fn, ms) {
   let t;
@@ -659,8 +673,16 @@ async function carregarChamados() {
   const params = new URLSearchParams();
   if (q) params.set('q', q);
   if (situacao) params.set('situacao', situacao);
+  params.set('page', chamadosPagina);
+  params.set('pageSize', CHAMADOS_PAGE_SIZE);
 
-  const { itens } = await api.get(`/chamados?${params.toString()}`);
+  const { itens, total, page, pageSize } = await api.get(`/chamados?${params.toString()}`);
+  const totalPaginas = Math.max(Math.ceil(total / pageSize), 1);
+  const info = document.getElementById('chamPaginaInfo');
+  if (info) info.textContent = `Página ${page} de ${totalPaginas} — ${total} chamados`;
+  document.getElementById('btnChamAnterior').disabled = page <= 1;
+  document.getElementById('btnChamProxima').disabled = page >= totalPaginas;
+
   const tbody = document.querySelector('#tblChamados tbody');
   tbody.innerHTML = itens.map((c) => `
     <tr>

@@ -111,6 +111,7 @@ textarea{width:100%;resize:vertical;min-height:60px;}
 .formGrid .full{grid-column:1/-1;}
 .formActions{display:flex;gap:10px;justify-content:flex-end;}
 .ghostBtn{background:none;border:1px solid var(--line);color:var(--text-dim);padding:9px 16px;border-radius:7px;font-size:13px;cursor:pointer;}
+.ghostBtn:disabled{opacity:.4;cursor:not-allowed;}
 .toast{
   position:fixed;bottom:24px;right:24px;background:var(--green-dim);border:1px solid var(--green);
   color:var(--green);padding:12px 18px;border-radius:8px;font-size:13px;box-shadow:0 4px 20px rgba(0,0,0,.4);
