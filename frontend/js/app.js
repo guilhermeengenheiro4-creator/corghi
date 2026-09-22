@@ -802,6 +802,7 @@ function abrirFormChamado(chamado = null) {
 // Chamados importados do legado (antes desta data) não têm número/data de envio de
 // orçamento preenchidos manualmente — por padrão a aba só considera daqui pra frente.
 let orcamentosDesde = '2026-08-07';
+let orcamentosStatusFiltro = '';
 
 async function renderOrcamentos() {
   const main = document.getElementById('mainContent');
@@ -838,8 +839,8 @@ async function renderOrcamentos() {
           <input type="date" id="fOrcDesde" value="${orcamentosDesde}">
         </label>
         <select id="fOrcStatus">
-          <option value="">Status (todos)</option>
-          ${ORCAMENTO_STATUS.map((s) => `<option value="${s}">${s.replace(/_/g, ' ')}</option>`).join('')}
+          <option value="" ${orcamentosStatusFiltro === '' ? 'selected' : ''}>Status (todos)</option>
+          ${ORCAMENTO_STATUS.map((s) => `<option value="${s}" ${orcamentosStatusFiltro === s ? 'selected' : ''}>${s.replace(/_/g, ' ')}</option>`).join('')}
         </select>
       </div>
     </div>
@@ -857,14 +858,16 @@ async function renderOrcamentos() {
     orcamentosDesde = e.target.value;
     renderOrcamentos();
   });
-  document.getElementById('fOrcStatus').addEventListener('change', carregarOrcamentos);
+  document.getElementById('fOrcStatus').addEventListener('change', (e) => {
+    orcamentosStatusFiltro = e.target.value;
+    carregarOrcamentos();
+  });
   await carregarOrcamentos();
 }
 
 async function carregarOrcamentos() {
-  const status = document.getElementById('fOrcStatus').value;
   const params = new URLSearchParams({ orcamento: 'true', pageSize: '500', dataDesde: orcamentosDesde });
-  if (status) params.set('orcamentoStatus', status);
+  if (orcamentosStatusFiltro) params.set('orcamentoStatus', orcamentosStatusFiltro);
 
   const { itens } = await api.get(`/chamados?${params.toString()}`);
   const tbody = document.querySelector('#tblOrcamentos tbody');
