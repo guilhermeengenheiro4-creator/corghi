@@ -192,6 +192,7 @@ function irParaView(view) {
     pintura: renderPintura,
     producao: renderProducao,
     visitasTecnicas: renderVisitasTecnicas,
+    relatorios: renderRelatorios,
     usuarios: renderUsuarios,
   };
   (renderers[view] || renderDashboard)();
@@ -1497,6 +1498,92 @@ function abrirFormVisitaTecnica(visita = null) {
       toast(err.message, true);
     }
   });
+}
+
+// ---------- RELATÓRIOS ----------
+
+let relatorioMes = new Date().toISOString().slice(0, 7); // "YYYY-MM"
+const NOMES_MES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+
+async function renderRelatorios() {
+  const main = document.getElementById('mainContent');
+  main.innerHTML = `
+    <div class="toolbar noPrint">
+      <div class="filters">
+        <label style="font-size:11.5px;color:var(--text-dim);display:flex;align-items:center;gap:6px;">
+          Mês de referência
+          <input type="month" id="fRelMes" value="${relatorioMes}">
+        </label>
+      </div>
+      <button class="primaryBtn" id="btnImprimirRelatorio">Imprimir / Salvar PDF</button>
+    </div>
+    <div id="relatorioConteudo"><p class="sectionLabel">Carregando…</p></div>
+  `;
+
+  document.getElementById('fRelMes').addEventListener('change', (e) => {
+    if (!e.target.value) return;
+    relatorioMes = e.target.value;
+    carregarRelatorioMensal();
+  });
+  document.getElementById('btnImprimirRelatorio').addEventListener('click', () => window.print());
+
+  await carregarRelatorioMensal();
+}
+
+async function carregarRelatorioMensal() {
+  const [ano, mes] = relatorioMes.split('-').map(Number);
+  const el = document.getElementById('relatorioConteudo');
+
+  let r;
+  try {
+    r = await api.get(`/dashboard/relatorio-mensal?ano=${ano}&mes=${mes}`);
+  } catch (err) {
+    el.innerHTML = `<p>Erro ao carregar relatório: ${err.message}</p>`;
+    return;
+  }
+
+  const { chamados, orcamentos } = r;
+  const situacaoMap = Object.fromEntries(chamados.porSituacao.map((s) => [s.situacao, s._count]));
+  const reprovadoCancelado = {
+    valor: orcamentos.porStatus.reprovado.valor + orcamentos.porStatus.cancelado.valor,
+    quantidade: orcamentos.porStatus.reprovado.quantidade + orcamentos.porStatus.cancelado.quantidade,
+  };
+
+  el.innerHTML = `
+    <div class="relatorioHeader">
+      <h2 style="margin:0;">Relatório de Desempenho — ${NOMES_MES[mes - 1]} de ${ano}</h2>
+      <p style="color:var(--text-dim);margin:4px 0 0;">Corghi Brasil — Área Técnica</p>
+    </div>
+
+    <p class="sectionLabel" style="margin-top:22px;">Chamados</p>
+    <div class="kpiRow">
+      <div class="kpi" style="--accent:var(--blue)"><div class="val num">${chamados.totalAbertosNoMes}</div><div class="lbl">Abertos no mês</div></div>
+      <div class="kpi" style="--accent:var(--green)"><div class="val num">${chamados.resolvidosNoMes}</div><div class="lbl">Resolvidos no mês</div></div>
+      ${SITUACOES.map((s) => `<div class="kpi"><div class="val num">${situacaoMap[s] || 0}</div><div class="lbl">${s.replace(/_/g, ' ')}</div></div>`).join('')}
+    </div>
+
+    <div class="chartsRow">
+      <div class="panel"><h3>Por equipamento</h3>
+        <table><thead><tr><th>Equipamento</th><th>Qtd</th></tr></thead><tbody>
+          ${chamados.porEquipamento.map((e) => `<tr><td>${e.equipamentoCategoria}</td><td class="num">${e._count}</td></tr>`).join('') || '<tr><td colspan="2">Sem dados.</td></tr>'}
+        </tbody></table>
+      </div>
+      <div class="panel"><h3>Por responsável</h3>
+        <table><thead><tr><th>Responsável</th><th>Qtd</th></tr></thead><tbody>
+          ${chamados.porResponsavel.map((rp) => `<tr><td>${rp.responsavel}</td><td class="num">${rp._count}</td></tr>`).join('') || '<tr><td colspan="2">Sem dados.</td></tr>'}
+        </tbody></table>
+      </div>
+    </div>
+
+    <p class="sectionLabel" style="margin-top:22px;">Orçamentos — influência da área técnica nas vendas</p>
+    <div class="kpiRow">
+      <div class="kpi" style="--accent:var(--blue)"><div class="val num">${orcamentos.totalOrcamentos}</div><div class="lbl">Total de orçamentos</div></div>
+      <div class="kpi" style="--accent:var(--green)"><div class="val num">${orcamentos.taxaConversao === null ? '—' : `${(orcamentos.taxaConversao * 100).toFixed(0)}%`}</div><div class="lbl">Taxa de conversão</div></div>
+      <div class="kpi" style="--accent:var(--green)"><div class="val num">${fmtMoeda(orcamentos.porStatus.aprovado.valor)}</div><div class="lbl">Aprovado (${orcamentos.porStatus.aprovado.quantidade})</div></div>
+      <div class="kpi" style="--accent:var(--amber)"><div class="val num">${fmtMoeda(orcamentos.valorTotalOrcado)}</div><div class="lbl">Valor total orçado</div></div>
+      <div class="kpi" style="--accent:var(--red)"><div class="val num">${fmtMoeda(reprovadoCancelado.valor)}</div><div class="lbl">Reprovado/Cancelado (${reprovadoCancelado.quantidade})</div></div>
+    </div>
+  `;
 }
 
 // ---------- USUÁRIOS (admin) ----------

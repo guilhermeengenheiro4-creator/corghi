@@ -159,3 +159,18 @@ body.tv-kiosk main{padding:0;max-width:none;height:100vh;overflow:hidden;}
 .tvGrid2{flex:1;min-height:0;display:grid;grid-template-columns:1fr 1fr;gap:20px;}
 .tvGrid2 > div{display:flex;flex-direction:column;min-height:0;}
 .tvGrid2 .listPanel{flex:1;min-height:0;overflow:hidden;}
+
+/* RELATÓRIOS / IMPRESSÃO */
+.relatorioHeader{border-bottom:1px solid var(--line);padding-bottom:14px;}
+
+@media print{
+  body *{visibility:hidden;}
+  #relatorioConteudo, #relatorioConteudo *{visibility:visible;}
+  #relatorioConteudo{position:absolute;top:0;left:0;width:100%;}
+  header, nav, .noPrint{display:none !important;}
+  body, #app, main{background:#fff !important;color:#111 !important;margin:0;padding:0;}
+  .kpi, .panel{background:#fff !important;border:1px solid #ccc !important;color:#111 !important;break-inside:avoid;}
+  .kpi .val, .kpi .lbl, .panel h3, th, td, .sectionLabel, h2, p{color:#111 !important;}
+  th{border-bottom-color:#999 !important;}
+  td{border-bottom-color:#ddd !important;}
+}

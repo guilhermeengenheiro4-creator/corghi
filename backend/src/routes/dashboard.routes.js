@@ -114,4 +114,53 @@ router.get('/orcamentos', async (req, res) => {
   });
 });
 
+// Relatório de desempenho mensal: chamados e orçamentos do mês escolhido (por data de
+// abertura do chamado), pra fechamento mensal.
+router.get('/relatorio-mensal', async (req, res) => {
+  const ano = parseInt(req.query.ano, 10) || new Date().getUTCFullYear();
+  const mes = parseInt(req.query.mes, 10) || new Date().getUTCMonth() + 1; // 1-12
+  const inicio = new Date(Date.UTC(ano, mes - 1, 1));
+  const fim = new Date(Date.UTC(ano, mes, 1));
+  const whereMes = { data: { gte: inicio, lt: fim } };
+
+  const [totalAbertosNoMes, resolvidosNoMes, porSituacao, porEquipamento, porResponsavel] = await Promise.all([
+    prisma.chamado.count({ where: whereMes }),
+    prisma.chamado.count({ where: { dataFechamento: { gte: inicio, lt: fim } } }),
+    prisma.chamado.groupBy({ by: ['situacao'], where: whereMes, _count: true }),
+    prisma.chamado.groupBy({ by: ['equipamentoCategoria'], where: whereMes, _count: true }),
+    prisma.chamado.groupBy({ by: ['responsavel'], where: whereMes, _count: true, orderBy: { _count: { responsavel: 'desc' } } }),
+  ]);
+
+  const porStatusOrcamento = await prisma.chamado.groupBy({
+    by: ['orcamentoStatus'],
+    where: { orcamentoStatus: { not: null }, ...whereMes },
+    _count: true,
+    _sum: { valorOrcamento: true },
+  });
+
+  const mapa = Object.fromEntries(
+    porStatusOrcamento.map((s) => [s.orcamentoStatus, { quantidade: s._count, valor: Number(s._sum.valorOrcamento || 0) }])
+  );
+  const aprovado = mapa.APROVADO || { quantidade: 0, valor: 0 };
+  const reprovado = mapa.REPROVADO || { quantidade: 0, valor: 0 };
+  const cancelado = mapa.CANCELADO || { quantidade: 0, valor: 0 };
+  const enviado = mapa.ENVIADO || { quantidade: 0, valor: 0 };
+  const aMontar = mapa.A_MONTAR || { quantidade: 0, valor: 0 };
+  const decididos = aprovado.quantidade + reprovado.quantidade + cancelado.quantidade;
+  const taxaConversao = decididos ? aprovado.quantidade / decididos : null;
+  const totalOrcamentos = decididos + enviado.quantidade + aMontar.quantidade;
+  const valorTotalOrcado = aprovado.valor + reprovado.valor + cancelado.valor + enviado.valor + aMontar.valor;
+
+  res.json({
+    periodo: { ano, mes },
+    chamados: { totalAbertosNoMes, resolvidosNoMes, porSituacao, porEquipamento, porResponsavel },
+    orcamentos: {
+      totalOrcamentos,
+      taxaConversao,
+      valorTotalOrcado,
+      porStatus: { aMontar, enviado, aprovado, reprovado, cancelado },
+    },
+  });
+});
+
 module.exports = router;
