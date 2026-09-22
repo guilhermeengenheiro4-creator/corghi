@@ -692,13 +692,30 @@ async function carregarChamados() {
       <td>${c.cliente}</td>
       <td>${c.equipamentoCategoria}</td>
       <td>${(c.assunto || '').slice(0, 40)}</td>
-      <td>${badge(c.situacao)}${c.orcamentoStatus ? ' ' + badge(c.orcamentoStatus) : ''}</td>
+      <td>
+        <select data-situacao="${c.id}">
+          ${SITUACOES.map((s) => `<option value="${s}" ${c.situacao === s ? 'selected' : ''}>${s.replace(/_/g, ' ')}</option>`).join('')}
+        </select>
+        ${c.orcamentoStatus ? ' ' + badge(c.orcamentoStatus) : ''}
+      </td>
       <td class="rowActions">
         <button class="rowBtn" data-editar="${c.id}">Editar</button>
         <button class="rowBtn" data-relatorio="${c.id}">Gerar relatório</button>
       </td>
     </tr>
   `).join('') || '<tr><td colspan="7">Nenhum chamado encontrado.</td></tr>';
+
+  tbody.querySelectorAll('[data-situacao]').forEach((sel) => {
+    sel.addEventListener('change', async () => {
+      try {
+        await api.put(`/chamados/${sel.dataset.situacao}`, { situacao: sel.value });
+        toast('Situação atualizada.');
+        await carregarChamados();
+      } catch (err) {
+        toast(err.message, true);
+      }
+    });
+  });
 
   tbody.querySelectorAll('[data-relatorio]').forEach((btn) => {
     btn.addEventListener('click', () => {
